@@ -17,9 +17,6 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Clash 用户配置（用户自行提供）
-clash-config/
-
 # 日志和数据目录
 data/
 logs/
