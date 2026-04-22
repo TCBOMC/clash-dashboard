@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  # ── Clash Meta 核心 ─────────────────────────────────────────────────────
+  clash:
+    image: ghcr.io/metacubex/mihomo:latest
+    container_name: clash-core
+    restart: unless-stopped
+    volumes:
+      - ./clash-config:/root/.config/clash
+    ports:
+      - "7890:7890"
+      - "7891:7891"
+      - "7892:7892"
+    expose:
+      - "9090"
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      - clash-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/proxies"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Clash Dashboard WebUI ───────────────────────────────────────────────
+  dashboard:
+    image: ghcr.io/tcobmc/clash-dashboard:latest
+    container_name: clash-dashboard
+    restart: unless-stopped
+    depends_on:
+      clash:
+        condition: service_healthy
+    volumes:
+      - ./clash-config:/root/.config/clash
+      - ./data:/data
+    ports:
+      - "8080:8080"
+    environment:
+      - CLASH_API_URL=http://clash:9090
+      - CLASH_API_SECRET=${CLASH_SECRET:-}
+      - TZ=Asia/Shanghai
+    networks:
+      - clash-net
+
+networks:
+  clash-net:
+    driver: bridge
