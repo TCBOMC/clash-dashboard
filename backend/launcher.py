@@ -236,19 +236,14 @@ def _start_backend(env: dict) -> subprocess.Popen:
         _kill_port(8080)
         _wait_port_free("0.0.0.0", 8080, timeout=8)
 
-    log_path = PROJECT_DIR / "backend.log"
-    # Open separate handles for stdout and stderr
-    out_file = open(log_path, "w", buffering=1)
-    err_file = open(log_path, "a", buffering=1)
-
     cmd = [sys.executable, "main.py"]
     print(f"[launcher] Starting backend: {' '.join(cmd)}")
     p = subprocess.Popen(
         cmd,
         cwd=str(BACKEND_DIR),
         env=env,
-        stdout=out_file,
-        stderr=err_file,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     print(f"[launcher] Backend PID {p.pid}, http://127.0.0.1:8080")
     return p
@@ -374,10 +369,11 @@ def main():
                 import select
                 import fcntl
                 import os
-                # 设置 backend_proc.stdout 为非阻塞
-                fd = backend_proc.stdout.fileno()
-                fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-                fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+                # 设置 backend_proc.stdout 为非阻塞（DEVNULL 时 stdout 为 None，跳过）
+                if backend_proc.stdout is not None:
+                    fd = backend_proc.stdout.fileno()
+                    fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+                    fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
                 while not shutdown_event.is_set():
                     rc = backend_proc.poll()
                     if rc is not None:
