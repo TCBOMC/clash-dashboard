@@ -27,6 +27,6 @@ jobs:
           context: .
           push: true
           tags: |
-            tcbomc/clash-dashboard:latest
-            tcbomc/clash-dashboard:${{ github.run_number }}
+            trseimc/clash-dashboard:latest
+            trseimc/clash-dashboard:${{ github.run_number }}
           platforms: linux/amd64,linux/arm64
