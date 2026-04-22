@@ -1,0 +1,33 @@
+# Clash Dashboard - 远程部署版
+# ─────────────────────────────────────────────────────────────────────────────
+# 使用 Docker Hub 预构建镜像，无需 clone源码，在目标设备上直接运行
+#
+# 用法（下载后直接运行）:
+#   curl -fsSL https://raw.githubusercontent.com/TCBOMC/clash-dashboard/main/docker-compose.deploy.yml -o docker-compose.yml
+#   # 编辑 ./clash-config/config.yaml 放入你的 Clash 配置
+#   docker compose up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  clash-dashboard:
+    image: trseimc/clash-dashboard:latest
+    container_name: clash-dashboard
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"    # Dashboard WebUI
+      - "9091:9091"    # Mihomo RESTful API
+      - "7890:7890"    # HTTP 代理
+      - "7891:7891"    # SOCKS5 代理
+
+    volumes:
+      # 挂载 Clash 配置目录（必须包含 config.yaml）
+      - ./clash-config:/app/clash-config:rw
+
+
+
+    # 允许 Clash 修改网络（创建 TUN 模式必需）
+    cap_add:
+      - NET_ADMIN
+
+    network_mode: bridge
