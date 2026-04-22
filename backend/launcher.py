@@ -287,7 +287,7 @@ def _resolve_clash_url() -> str:
     # Try bundled mihomo
     default_config = CONFIG_DIR / "config.yaml"
     if not default_config.exists():
-        # Volume mount 可能覆盖了镜像内默认配置，自动生成一个
+        # 镜像内默认配置可能被 volume mount 覆盖，自动生成一个
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         default_config.write_text(
             "mixed-port: 7890\n"
@@ -303,7 +303,8 @@ def _resolve_clash_url() -> str:
             "    - 119.29.29.29\n"
         )
         print(f"[launcher] Generated default config at {default_config}")
-    mihomo_proc = _start_mihomo(default_config)
+    if default_config.exists():
+        mihomo_proc = _start_mihomo(default_config)
         detected_port = _detect_api_port(default_config)
         if mihomo_proc is not None:
             url = f"http://127.0.0.1:{detected_port}"
