@@ -57,7 +57,7 @@ RUN pip install --no-cache-dir \
 # Environment defaults
 ENV MIHOMO_API_PORT=9090
 ENV MIHOMO_SOCKS_PORT=7890
-ENV CLASH_API_URL=http://127.0.0.1:9090
+# CLASH_API_URL intentionally omitted — launcher.py auto-detects bundled mihomo
 ENV STATIC_DIR=/app/frontend
 ENV PYTHONUNBUFFERED=1
 
