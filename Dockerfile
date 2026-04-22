@@ -1,27 +1,78 @@
+# Clash Dashboard - Bundled Mihomo Edition
+# Single container: mihomo (Clash Meta) + FastAPI dashboard
+#
+# Build:
+#   docker build -t clash-dashboard .
+#
+# Run:
+#   docker run --privileged -p 8080:8080 -p 7890:7890 -p 7891:7891 \
+#              -v ./clash-config:/app/clash-config \
+#              clash-dashboard
+#
+# Compose:
+#   docker compose up
+
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download mihomo binary (linux-amd64)
+ARG MIHOMO_VERSION=v1.19.24
+RUN curl -fSL \
+    "https://github.com/MetaCubeX/mihomo/releases/download/${MIHOMO_VERSION}/mihomo-linux-amd64-compatible-${MIHOMO_VERSION}.gz" \
+    -o mihomo-linux-amd64.gz \
+    && gunzip mihomo-linux-amd64.gz \
+    && chmod +x mihomo-linux-amd64
+
+# ── Runtime stage ────────────────────────────────────────────────────────────
+
 FROM python:3.12-slim
 
 WORKDIR /app
 
+# Runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy pre-built mihomo from builder
+COPY --from=builder /app/mihomo-linux-amd64 /usr/local/bin/mihomo
+RUN chmod +x /usr/local/bin/mihomo
 
-COPY backend/ .
-COPY frontend/ /app/frontend/
+# Copy application
+COPY backend/         /app/backend/
+COPY frontend/        /app/frontend/
+COPY clash-config/    /app/clash-config/
 
-RUN mkdir -p /clash-config
+# Install Python deps
+RUN pip install --no-cache-dir \
+    fastapi uvicorn[standard] \
+    httpx aiofiles pyyaml python-multipart
 
-EXPOSE 8080
+# Environment defaults
+ENV MIHOMO_API_PORT=9091
+ENV MIHOMO_SOCKS_PORT=7890
+ENV CLASH_API_URL=http://127.0.0.1:9091
+ENV STATIC_DIR=/app/frontend
+ENV PYTHONUNBUFFERED=1
 
-ENV CLASH_API_BASE=http://clash:9090 \
-    CLASH_SECRET="" \
-    CONFIG_DIR=/clash-config \
-    PYTHONUNBUFFERED=1
+# Expose ports
+#   8080  - Dashboard WebUI
+#   9091  - Mihomo RESTful API
+#   7890  - HTTP proxy
+#   7891  - SOCKS5 proxy
+EXPOSE 8080 9091 7890 7891
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD curl -sf http://localhost:8080/api/health || exit 1
+WORKDIR /app/backend
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Healthcheck
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -sf http://127.0.0.1:8080/api/health || exit 1
+
+# Entrypoint: launcher manages mihomo + backend lifecycle
+ENTRYPOINT ["python", "launcher.py"]

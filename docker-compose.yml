@@ -1,49 +1,42 @@
-version: "3.9"
+# Clash Dashboard + Bundled Mihomo
+# ─────────────────────────────────────────────────────────────────────────────
+# Usage:
+#   docker compose up          # bundled mihomo (自启动内核)
+#   docker compose --f docker-compose.external.yml up  # 使用已有的外部 Clash
+#
+# Ports:
+#   8080  Dashboard WebUI
+#   9091  Mihomo RESTful API
+#   7890  HTTP 代理
+#   7891  SOCKS5 代理
+# ─────────────────────────────────────────────────────────────────────────────
 
 services:
-  # ── Clash Meta 核心 ─────────────────────────────────────────────────────
-  clash:
-    image: ghcr.io/metacubex/mihomo:latest
-    container_name: clash-core
-    restart: unless-stopped
-    volumes:
-      - ./clash-config:/root/.config/clash
-    ports:
-      - "7890:7890"
-      - "7891:7891"
-      - "7892:7892"
-    expose:
-      - "9090"
-    environment:
-      - TZ=Asia/Shanghai
-    networks:
-      - clash-net
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:9090/proxies"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ── Clash Dashboard WebUI ───────────────────────────────────────────────
-  dashboard:
-    image: ghcr.io/tcobmc/clash-dashboard:latest
+  clash-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: clash-dashboard
     restart: unless-stopped
-    depends_on:
-      clash:
-        condition: service_healthy
-    volumes:
-      - ./clash-config:/root/.config/clash
-      - ./data:/data
-    ports:
-      - "8080:8080"
-    environment:
-      - CLASH_API_URL=http://clash:9090
-      - CLASH_API_SECRET=${CLASH_SECRET:-}
-      - TZ=Asia/Shanghai
-    networks:
-      - clash-net
 
-networks:
-  clash-net:
-    driver: bridge
+    # Ports
+    ports:
+      - "8080:8080"    # Dashboard WebUI
+      - "9091:9091"    # Mihomo RESTful API
+      - "7890:7890"    # HTTP 代理
+      - "7891:7891"    # SOCKS5 代理
+
+    # Persist config across restarts
+    volumes:
+      - ./clash-config:/app/clash-config:rw
+
+    # Environment variables (override with .env file)
+    environment:
+      - MIHOMO_API_PORT=9091
+      - CLASH_API_URL=http://127.0.0.1:9091
+
+    # Required for mihomo to redirect traffic
+    cap_add:
+      - NET_ADMIN
+
+    network_mode: bridge

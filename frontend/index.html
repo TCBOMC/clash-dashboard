@@ -6,6 +6,7 @@
 <title>Clash Dashboard</title>
 <style>
 :root{--bg:#1a1b23;--bg2:#13141a;--surface:#22242f;--surface2:#2a2d3a;--surface3:#32364a;--border:#383c52;--text:#e2e4f0;--text2:#9599b3;--text3:#5a5f7a;--accent:#7c5cfc;--accent-light:#9d82ff;--accent-dim:rgba(124,92,252,.15);--green:#46d39a;--green-dim:rgba(70,211,154,.15);--red:#ff6b6b;--red-dim:rgba(255,107,107,.15);--yellow:#ffd166;--yellow-dim:rgba(255,209,102,.15);--blue:#4ecdc4;--blue-dim:rgba(78,205,196,.15);--sidebar-w:220px;--radius:10px;--radius-sm:6px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#ffffff;--bg2:#f5f6fa;--surface:#ffffff;--surface2:#eef0f5;--surface3:#e4e7ef;--border:#d0d3e0;--text:#1a1b2e;--text2:#5a5f80;--text3:#9099b8;--accent:#6b4de0;--accent-light:#5a38d4;--accent-dim:rgba(107,77,224,.12);--green:#1aaa6e;--green-dim:rgba(26,170,110,.12);--red:#e04040;--red-dim:rgba(224,64,64,.12);--yellow:#d49a00;--yellow-dim:rgba(212,154,0,.12);--blue:#0899b0;--blue-dim:rgba(8,153,176,.12);--shadow:0 4px 24px rgba(0,0,0,.12)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg2);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;overflow:hidden}
 a{color:inherit;text-decoration:none}
@@ -302,9 +303,8 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 
       <!-- Subscriptions -->
       <div class="page" id="page-subscriptions">
-        <div class="sub-list" id="sub-list">
-          <div class="empty-state" id="sub-empty"><div class="icon">📦</div><div class="text">还没有订阅，点击右上角添加</div></div>
-        </div>
+        <div id="sub-empty" class="empty-state"><div class="icon">📦</div><div class="text">还没有订阅，点击右上角添加</div></div>
+        <div class="sub-list" id="sub-list"></div>
       </div>
 
       <!-- Rulesets -->
@@ -325,6 +325,19 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 
       <!-- Settings -->
       <div class="page" id="page-settings">
+        <div class="settings-section">
+          <div class="settings-title">界面外观</div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="title">主题</div><div class="desc">深色 / 浅色 / 跟随系统</div></div>
+            <div class="settings-control">
+              <select id="s-theme" onchange="applyTheme(this.value)">
+                <option value="auto">自动（跟随系统）</option>
+                <option value="dark">深色</option>
+                <option value="light">浅色</option>
+              </select>
+            </div>
+          </div>
+        </div>
         <div class="settings-section">
           <div class="settings-title">Clash 核心配置</div>
           <div class="settings-row">
@@ -415,6 +428,43 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 <div class="toast-container" id="toast-container"></div>
 
 <script>
+// ─── Global error / rejection catching (must be first) ───────────────────────
+window.addEventListener('error', function(e) {
+    console.error('[WINDOW ERROR]', e.message,
+        '\n  URL:', e.filename, '  line:', e.lineno, '  col:', e.colno,
+        '\n  stack:', e.error && e.error.stack);
+    // Don't prevent default — let the error propagate
+});
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('[UNHANDLED REJECTION]',
+        '\n  reason:', e.reason,
+        '\n  stack:', e.reason && (e.reason.stack || new Error().stack));
+});
+
+// ─── Theme management ─────────────────────────────────────────────────────────
+function getEffectiveTheme(theme){
+  if(theme==='auto'){
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+  return theme||'dark';
+}
+function applyTheme(theme){
+  theme=theme||localStorage.getItem('theme')||'auto';
+  localStorage.setItem('theme',theme);
+  const t=getEffectiveTheme(theme);
+  document.documentElement.setAttribute('data-theme',t);
+  // sync select in settings page
+  const sel=document.getElementById('s-theme');
+  if(sel) sel.value=theme;
+}
+// listen to system theme changes when in auto mode
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change',function(){
+  const saved=localStorage.getItem('theme')||'auto';
+  if(saved==='auto') applyTheme('auto');
+});
+// apply saved theme on load
+applyTheme(localStorage.getItem('theme')||'auto');
+
 const API='';
 let currentPage='overview',logES=null,logPaused=false;
 let allRules=[],allConns=[],rulesPage=1;
@@ -448,9 +498,24 @@ function navigate(page){
 }
 
 async function apiFetch(path,opts={}){
-  const res=await fetch(`${API}${path}`,{headers:{'Content-Type':'application/json'},...opts});
-  if(!res.ok)throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  try {
+    const res=await fetch(`${API}${path}`,{headers:{'Content-Type':'application/json'},...opts});
+    if(!res.ok){
+      let msg=`HTTP ${res.status}`;
+      try{
+        const body=await res.json();
+        msg=body.detail||msg;
+        console.error('[apiFetch ERROR]',path,res.status,body);
+      }catch(_){}
+      const e=new Error(msg);
+      console.error('[apiFetch STACK]',path,e.stack);
+      throw e;
+    }
+    return res.json();
+  } catch(e) {
+    console.error('[apiFetch CATCH]',path,e.message,e.stack);
+    throw e;
+  }
 }
 
 async function loadOverview(){
@@ -466,7 +531,7 @@ async function loadOverview(){
     ['rule','global','direct'].forEach(m=>document.getElementById(`mode-${m}`)?.classList.remove('active'));
     document.getElementById(`mode-${d.mode}`)?.classList.add('active');
     document.getElementById('status-dot').className='status-dot';
-    document.getElementById('status-text').textContent=`v${d.version}`;
+    document.getElementById('status-text').textContent=d.version?.startsWith('v')?d.version:`v${d.version||''}`;
   }catch(e){
     document.getElementById('status-dot').className='status-dot offline';
     document.getElementById('status-text').textContent='未连接';
@@ -666,16 +731,44 @@ function toggleLogPause(){logPaused=!logPaused;document.getElementById('log-paus
 function changeLogLevel(){startLogStream()}
 
 let subsData=[];
-async function loadSubscriptions(){
-  try{const d=await apiFetch('/api/subscriptions');subsData=d.subscriptions||[];renderSubscriptions(d.active_subscription)}catch(e){toast('加载订阅失败','error')}
+async function loadSubscriptions(silent){
+  try{
+    const d=await apiFetch('/api/subscriptions');
+    subsData=d.subscriptions||[];
+    renderSubscriptions(d.active_subscription||null);
+  }catch(e){
+    console.error('[loadSubscriptions ERROR] silent='+silent, e.message, e.stack);
+    if(!silent){
+      // mihomo 重载期间后端可能短暂不可用，静默重试一次
+      try{
+        await new Promise(r=>setTimeout(r,2000));
+        const d=await apiFetch('/api/subscriptions');
+        subsData=d.subscriptions||[];
+        renderSubscriptions(d.active_subscription||null);
+      }catch(_2){
+        console.error('[loadSubscriptions RETRY FAILED]', _2.message, _2.stack);
+        toast('加载订阅失败，请刷新重试','error');
+      }
+    }
+  }
 }
 
 function renderSubscriptions(activeId){
-  const list=document.getElementById('sub-list');
-  const empty=document.getElementById('sub-empty');
-  if(!subsData.length){empty.style.display='block';list.innerHTML='';list.appendChild(empty);return}
-  empty.style.display='none';
-  list.innerHTML=subsData.map(s=>`<div class="sub-card ${s.id===activeId?'active-sub':''}" id="subcard-${s.id}"><div style="font-size:28px">📦</div><div class="sub-info"><div class="flex items-center gap-8"><div class="sub-name">${s.name}</div>${s.id===activeId?'<span class="badge badge-active">已激活</span>':''}<span class="badge badge-${s.status||'pending'}">${{ok:'正常',error:'错误',pending:'待更新'}[s.status]||s.status}</span></div><div class="sub-url">${s.url}</div><div class="sub-meta"><span class="sub-tag">🕐 ${s.last_updated?s.last_updated.replace('T',' '):'从未更新'}</span><span class="sub-tag">📡 ${s.node_count} 个节点</span>${s.auto_update?`<span class="sub-tag">🔄 自动更新 ${s.update_interval}s</span>`:''}</div></div><div class="sub-actions"><button class="btn btn-ghost" onclick="updateSub('${s.id}')">更新</button><button class="btn btn-success" onclick="activateSub('${s.id}')">激活</button><button class="btn btn-danger" onclick="deleteSub('${s.id}')">删除</button></div></div>`).join('');
+  try {
+    const list=document.getElementById('sub-list');
+    const empty=document.getElementById('sub-empty');
+    if(!list){console.error('[renderSubscriptions] #sub-list not found');return}
+    if(!subsData.length){
+      if(empty) empty.style.display='flex';
+      list.innerHTML='';
+      return;
+    }
+    if(empty) empty.style.display='none';
+    list.innerHTML=subsData.map(s=>`<div class="sub-card ${s.id===activeId?'active-sub':''}" id="subcard-${s.id}"><div style="font-size:28px">📦</div><div class="sub-info"><div class="flex items-center gap-8"><div class="sub-name">${s.name}</div>${s.id===activeId?'<span class="badge badge-active">已激活</span>':''}<span class="badge badge-${s.status||'pending'}">${{ok:'正常',error:'错误',pending:'待更新'}[s.status]||s.status}</span></div><div class="sub-url">${s.url}</div><div class="sub-meta"><span class="sub-tag">🕐 ${s.last_updated?s.last_updated.replace('T',' '):'从未更新'}</span><span class="sub-tag">📡 ${s.node_count} 个节点</span>${s.auto_update?`<span class="sub-tag">🔄 自动更新 ${s.update_interval}s</span>`:''}</div></div><div class="sub-actions"><button class="btn btn-ghost" onclick="updateSub('${s.id}')">更新</button><button class="btn btn-success" onclick="activateSub('${s.id}')">激活</button><button class="btn btn-danger" onclick="deleteSub('${s.id}')">删除</button></div></div>`).join('');
+  } catch(e) {
+    console.error('[renderSubscriptions ERROR]', e.message, e.stack, 'subsData=', JSON.stringify(subsData).slice(0,500));
+    toast('渲染订阅列表失败: '+e.message, 'error');
+  }
 }
 
 function openModal(id){document.getElementById(id).classList.add('show')}
@@ -686,21 +779,46 @@ async function submitAddSub(){
   const url=document.getElementById('sub-form-url').value.trim();
   const interval=parseInt(document.getElementById('sub-form-interval').value)||3600;
   if(!name||!url){toast('请填写名称和订阅链接','error');return}
-  try{await apiFetch('/api/subscriptions',{method:'POST',body:JSON.stringify({name,url,auto_update:true,update_interval:interval})});closeModal('modal-add-sub');document.getElementById('sub-form-name').value='';document.getElementById('sub-form-url').value='';toast('订阅已添加','success');loadSubscriptions()}catch(e){toast('添加失败: '+e.message,'error')}
+  try{
+    await apiFetch('/api/subscriptions',{method:'POST',body:JSON.stringify({name,url,auto_update:true,update_interval:interval})});
+    closeModal('modal-add-sub');
+    document.getElementById('sub-form-name').value='';
+    document.getElementById('sub-form-url').value='';
+    toast('订阅已添加','success');
+    await new Promise(r=>setTimeout(r,500));
+    loadSubscriptions(true);
+  }catch(e){toast('添加失败: '+e.message,'error')}
 }
 
 async function updateSub(id){
   toast('正在更新订阅…','info');
-  try{const d=await apiFetch(`/api/subscriptions/${id}/update`,{method:'POST'});toast(`更新成功，共 ${d.node_count} 个节点`,'success');loadSubscriptions()}catch(e){toast('更新失败: '+e.message,'error')}
+  try{
+    const d=await apiFetch(`/api/subscriptions/${id}/update`,{method:'POST'});
+    toast(`更新成功，共 ${d.node_count} 个节点`,'success');
+    // 等待 2 秒让 mihomo 完成重启，再重拉列表
+    await new Promise(r=>setTimeout(r,2000));
+    loadSubscriptions(true);
+  }catch(e){toast('更新失败: '+e.message,'error')}
 }
 
 async function activateSub(id){
-  try{await apiFetch(`/api/subscriptions/${id}/activate`,{method:'POST'});toast('订阅已激活，配置已重载','success');loadSubscriptions()}catch(e){toast('激活失败: '+e.message,'error')}
+  try{
+    await apiFetch(`/api/subscriptions/${id}/activate`,{method:'POST'});
+    toast('订阅已激活，配置已重载','success');
+    // 等待 2 秒让 mihomo 完成重启，再重拉列表
+    await new Promise(r=>setTimeout(r,2000));
+    loadSubscriptions(true);
+  }catch(e){toast('激活失败: '+e.message,'error')}
 }
 
 async function deleteSub(id){
   if(!confirm('确定删除此订阅？'))return;
-  try{await apiFetch(`/api/subscriptions/${id}`,{method:'DELETE'});toast('已删除','success');loadSubscriptions()}catch(e){toast('删除失败','error')}
+  try{
+    await apiFetch(`/api/subscriptions/${id}`,{method:'DELETE'});
+    toast('已删除','success');
+    await new Promise(r=>setTimeout(r,500));
+    loadSubscriptions(true);
+  }catch(e){toast('删除失败','error')}
 }
 
 async function loadRulesets(){
@@ -752,7 +870,15 @@ async function submitRawConfig(){
 }
 
 async function loadSettings(){
-  try{const d=await apiFetch('/api/settings');document.getElementById('s-mixed-port').value=d.mixed_port||7890;document.getElementById('s-log-level').value=d.log_level||'info';document.getElementById('s-api-base').value=d.clash_api_base||'';setToggle('s-allow-lan',d.allow_lan);setToggle('s-ipv6',d.ipv6)}catch(e){toast('加载设置失败','error')}
+  try{
+    const d=await apiFetch('/api/settings');
+    document.getElementById('s-mixed-port').value=d.mixed_port||7890;
+    document.getElementById('s-log-level').value=d.log_level||'info';
+    document.getElementById('s-api-base').value=d.clash_api_base||'';
+    setToggle('s-allow-lan',d.allow_lan);
+    setToggle('s-ipv6',d.ipv6);
+    document.getElementById('s-theme').value=localStorage.getItem('theme')||'auto';
+  }catch(e){toast('加载设置失败','error')}
 }
 
 async function saveSettings(){
@@ -785,7 +911,7 @@ function formatBytes(bytes){
 document.addEventListener('DOMContentLoaded',()=>{
   navigate('overview');
   setInterval(async()=>{
-    try{const d=await apiFetch('/api/health');const ok=d.status==='ok';document.getElementById('status-dot').className='status-dot'+(ok?'':' offline');document.getElementById('status-text').textContent=ok?`v${d.clash?.version||''}`:'未连接'}catch{document.getElementById('status-dot').className='status-dot offline'}
+    try{const d=await apiFetch('/api/health');const ok=d.status==='ok';document.getElementById('status-dot').className='status-dot'+(ok?'':' offline');document.getElementById('status-text').textContent=ok?(d.clash?.version?.startsWith('v')?d.clash.version:`v${d.clash?.version||''}`):'未连接'}catch{document.getElementById('status-dot').className='status-dot offline'}
   },10000);
 });
 </script>

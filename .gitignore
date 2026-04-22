@@ -19,9 +19,13 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Clash user config (must not be committed)
-clash-config/config.yaml
+# Clash user config and runtime files (must not be committed)
+clash-config/
 data/
+bin/
+*.log
+mihomo.log
+backend.log
 
 # Docker
 .dockerignore is needed, *.dockerignore is not

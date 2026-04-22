@@ -1,0 +1,27 @@
+# Clash Dashboard - 外部 Clash 模式
+# ─────────────────────────────────────────────────────────────────────────────
+# 当已有 Clash 实例运行时，使用此配置。
+# Dashboard 容器不启动内置 mihomo，只运行 WebUI + API 代理。
+#
+# Usage:
+#   CLASH_API_URL=http://192.168.1.39:9090 docker compose -f docker-compose.external.yml up
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  clash-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: clash-dashboard
+
+    ports:
+      - "8080:8080"    # Dashboard WebUI
+
+    environment:
+      # 指向你的外部 Clash（改为你的实际地址）
+      - CLASH_API_URL=${CLASH_API_URL:-http://192.168.1.39:9090}
+      - STATIC_DIR=/app/frontend
+
+    # 不需要 NET_ADMIN，因为不运行 mihomo
+    restart: unless-stopped
+    network_mode: bridge
