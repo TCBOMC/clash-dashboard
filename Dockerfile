@@ -55,18 +55,18 @@ RUN pip install --no-cache-dir \
     httpx aiofiles pyyaml python-multipart
 
 # Environment defaults
-ENV MIHOMO_API_PORT=9091
+ENV MIHOMO_API_PORT=9090
 ENV MIHOMO_SOCKS_PORT=7890
-ENV CLASH_API_URL=http://127.0.0.1:9091
+ENV CLASH_API_URL=http://127.0.0.1:9090
 ENV STATIC_DIR=/app/frontend
 ENV PYTHONUNBUFFERED=1
 
 # Expose ports
 #   8080  - Dashboard WebUI
-#   9091  - Mihomo RESTful API
+#   9090  - Mihomo RESTful API
 #   7890  - HTTP proxy
 #   7891  - SOCKS5 proxy
-EXPOSE 8080 9091 7890 7891
+EXPOSE 8080 9090 7890 7891
 
 WORKDIR /app/backend
 

@@ -6,7 +6,7 @@
 #
 # Ports:
 #   8080  Dashboard WebUI
-#   9091  Mihomo RESTful API
+#   9090  Mihomo RESTful API
 #   7890  HTTP 代理
 #   7891  SOCKS5 代理
 # ─────────────────────────────────────────────────────────────────────────────
@@ -22,7 +22,7 @@ services:
     # Ports
     ports:
       - "8080:8080"    # Dashboard WebUI
-      - "9091:9091"    # Mihomo RESTful API
+      - "9090:9090"    # Mihomo RESTful API
       - "7890:7890"    # HTTP 代理
       - "7891:7891"    # SOCKS5 代理
 
@@ -32,8 +32,8 @@ services:
 
     # Environment variables (override with .env file)
     environment:
-      - MIHOMO_API_PORT=9091
-      - CLASH_API_URL=http://127.0.0.1:9091
+      - MIHOMO_API_PORT=9090
+      - CLASH_API_URL=http://127.0.0.1:9090
 
     # Required for mihomo to redirect traffic
     cap_add:

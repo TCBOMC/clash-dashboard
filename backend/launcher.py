@@ -39,7 +39,7 @@ FRONTEND_DIR = PROJECT_DIR / "frontend"
 # ─── Ports ──────────────────────────────────────────────────────────────────
 
 LAUNCHER_CMD_PORT = int(os.getenv("LAUNCHER_CMD_PORT", "9099"))  # 关闭命令端口
-MIHOMO_API_PORT = int(os.getenv("MIHOMO_API_PORT", "9091"))
+MIHOMO_API_PORT = int(os.getenv("MIHOMO_API_PORT", "9090"))
 MIHOMO_SOCKS_PORT = int(os.getenv("MIHOMO_SOCKS_PORT", "7890"))
 
 # 全局关闭事件

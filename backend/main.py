@@ -61,7 +61,7 @@ logger = _logger  # module-level alias
 # Configuration (must be defined before the startup banner below)
 # ---------------------------------------------------------------------------
 # 支持 CLASH_API_URL 或 CLASH_API_BASE 任一环境变量
-CLASH_API_BASE = os.getenv("CLASH_API_URL") or os.getenv("CLASH_API_BASE", "http://127.0.0.1:9091")
+CLASH_API_BASE = os.getenv("CLASH_API_URL") or os.getenv("CLASH_API_BASE", "http://127.0.0.1:9090")
 CLASH_SECRET = os.getenv("CLASH_SECRET", "")
 
 # Resolve CONFIG_DIR: use env var, or compute relative to this file's location
