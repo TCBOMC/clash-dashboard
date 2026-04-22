@@ -160,7 +160,11 @@ def _start_mihomo(config_path: Path) -> subprocess.Popen | None:
         return None
 
     log_path = PROJECT_DIR / "mihomo.log"
-    log_file = open(log_path, "w")
+    try:
+        log_file = open(log_path, "w")
+    except Exception as e:
+        print(f"[launcher] Cannot open mihomo log {log_path}: {e}, using DEVNULL")
+        log_file = subprocess.DEVNULL
 
     cmd = [
         str(bin_path),
@@ -182,6 +186,10 @@ def _start_mihomo(config_path: Path) -> subprocess.Popen | None:
         print(f"[launcher] mihomo failed to start within 15s, killing PID {p.pid}")
         p.terminate()
         p.wait(timeout=5)
+        # 读取 mihomo 日志帮助调试
+        if log_path.exists():
+            content = log_path.read_text(errors="replace")
+            print(f"[launcher] mihomo.log tail:\n{content[-1000:]}")
         return None
 
 
@@ -236,14 +244,22 @@ def _start_backend(env: dict) -> subprocess.Popen:
         _kill_port(8080)
         _wait_port_free("0.0.0.0", 8080, timeout=8)
 
+    log_path = PROJECT_DIR / "backend.log"
+    try:
+        out_file = open(log_path, "w", buffering=1)
+        err_file = open(log_path, "a", buffering=1)
+    except Exception as e:
+        print(f"[launcher] Cannot open backend log {log_path}: {e}, using DEVNULL")
+        out_file = err_file = subprocess.DEVNULL
+
     cmd = [sys.executable, "main.py"]
     print(f"[launcher] Starting backend: {' '.join(cmd)}")
     p = subprocess.Popen(
         cmd,
         cwd=str(BACKEND_DIR),
         env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=out_file,
+        stderr=err_file,
     )
     print(f"[launcher] Backend PID {p.pid}, http://127.0.0.1:8080")
     return p
@@ -304,6 +320,7 @@ def _resolve_clash_url() -> str:
         )
         print(f"[launcher] Generated default config at {default_config}")
     if default_config.exists():
+        print(f"[launcher] config.yaml found, attempting to start bundled mihomo...")
         mihomo_proc = _start_mihomo(default_config)
         detected_port = _detect_api_port(default_config)
         if mihomo_proc is not None:
@@ -314,6 +331,7 @@ def _resolve_clash_url() -> str:
             url = f"http://127.0.0.1:{detected_port}"
             print(f"[launcher] Bundled mihomo already running, CLASH_API_URL = {url}")
             return url
+        print(f"[launcher] Bundled mihomo failed to start, falling back")
 
     # Fallback
     url = os.getenv("CLASH_API_URL", "http://127.0.0.1:9090")
