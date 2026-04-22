@@ -45,9 +45,9 @@ COPY --from=builder /app/mihomo-linux-amd64 /usr/local/bin/mihomo
 RUN chmod +x /usr/local/bin/mihomo
 
 # Copy application
-COPY backend/         /app/backend/
-COPY frontend/        /app/frontend/
-COPY clash-config/    /app/clash-config/
+COPY backend/           /app/backend/
+COPY frontend/          /app/frontend/
+COPY default-config.yaml /app/clash-config/config.yaml
 
 # Install Python deps
 RUN pip install --no-cache-dir \
