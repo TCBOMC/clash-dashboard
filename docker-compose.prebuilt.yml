@@ -1,0 +1,33 @@
+# Clash Dashboard - 预构建镜像版
+# 一行命令即可启动，自动从 Docker Hub 拉取镜像
+#
+# 用法：
+#   mkdir clash-dashboard && cd clash-dashboard
+#   复制下面内容保存为 docker-compose.yml
+#   docker compose up -d
+#
+# 访问：http://localhost:8080
+
+services:
+  clash-dashboard:
+    image: tcbomc/clash-dashboard:latest
+    container_name: clash-dashboard
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"    # Dashboard WebUI
+      - "9091:9091"    # Mihomo RESTful API
+      - "7890:7890"    # HTTP 代理
+      - "7891:7891"    # SOCKS5 代理
+
+    volumes:
+      - ./clash-config:/app/clash-config:rw
+
+    environment:
+      - MIHOMO_API_PORT=9091
+      - CLASH_API_URL=http://127.0.0.1:9091
+
+    cap_add:
+      - NET_ADMIN
+
+    network_mode: bridge
