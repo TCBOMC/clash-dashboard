@@ -616,6 +616,74 @@ async def update_subscription(sub_id: str, sub: SubscriptionUpdate):
     raise HTTPException(status_code=404, detail="Subscription not found")
 
 
+@app.put("/api/subscriptions/{sub_id}/file")
+async def update_subscription_from_file(
+    sub_id: str,
+    name: str | None = Form(None),
+    url: str | None = Form(None),
+    update_interval: int = Form(0),
+    auto_update: bool = Form(False),
+    file: UploadFile | None = File(None),
+):
+    """
+    Update a subscription via file upload or form data.
+    Accepts multipart form data with:
+      - name: subscription name (optional, keep existing if not provided)
+      - url: subscription URL (optional)
+      - update_interval: auto-update interval in seconds (0 = disabled)
+      - auto_update: "true"/"false"
+      - file: the YAML config file (optional, if provided will update the config)
+    """
+    data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})
+    sub = next((s for s in data["subscriptions"] if s["id"] == sub_id), None)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    # Update basic info
+    if name is not None and name.strip():
+        sub["name"] = name.strip()
+    if url is not None:
+        sub["url"] = url.strip() if url.strip() else None
+    sub["auto_update"] = auto_update and bool(sub["url"])
+    sub["update_interval"] = update_interval if sub["url"] else 0
+
+    # If file is provided, update the config
+    node_count = sub.get("node_count", 0)
+    if file:
+        content = await file.read()
+        try:
+            raw_text = content.decode("utf-8")
+        except Exception:
+            try:
+                raw_text = content.decode("gbk")
+            except Exception:
+                raise HTTPException(status_code=400, detail="文件编码不支持，请使用 UTF-8 编码的 YAML 文件")
+
+        try:
+            cfg = yaml.safe_load(raw_text)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"YAML 解析失败: {e}")
+
+        proxies = cfg.get("proxies", []) or []
+        node_count = len(proxies)
+
+        # Save the config to clash-config directory
+        sub_file = CONFIG_DIR / f"sub_{sub_id}.yaml"
+        try:
+            sub_file.write_text(raw_text, encoding="utf-8")
+            logger.info(f"[UPDATE:FILE] Saved config with {node_count} proxies to {sub_file}")
+        except Exception as e:
+            logger.error(f"[UPDATE:FILE] Failed to save config: {e}")
+            raise HTTPException(status_code=500, detail=f"保存配置文件失败: {e}")
+
+        sub["node_count"] = node_count
+        sub["status"] = "ok" if node_count > 0 else "pending"
+        sub["last_updated"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+
+    save_json_file(SUBSCRIPTIONS_FILE, data)
+    return sub
+
+
 @app.delete("/api/subscriptions/{sub_id}")
 async def delete_subscription(sub_id: str):
     data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})

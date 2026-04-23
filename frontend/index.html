@@ -402,6 +402,28 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-edit-sub">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">修改订阅</div><button class="modal-close" onclick="closeModal('modal-edit-sub')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-sub-id" />
+      <div class="form-row"><div class="form-label">订阅名称</div><input id="edit-sub-name" placeholder="订阅名称" /></div>
+      <div class="form-row"><div class="form-label">订阅链接 <span style="color:var(--text2);font-weight:normal;font-size:12px">（留空则不修改）</span></div><input id="edit-sub-url" placeholder="https://…" /></div>
+      <div class="form-row"><div class="form-label">自动更新间隔（秒）<span style="color:var(--text2);font-weight:normal;font-size:12px">（无链接时无效）</span></div><input type="number" id="edit-sub-interval" value="3600" min="300" /></div>
+      <div class="form-row"><div class="form-label">手动更新配置文件</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="file" id="edit-sub-file" accept=".yaml,.yml,.txt" onchange="onEditSubFileChange(this)" style="flex:1" />
+          <span id="edit-sub-file-status" style="color:var(--text2);font-size:12px"></span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-sub')">取消</button>
+      <button class="btn btn-primary" onclick="submitEditSub()">保存</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-add-rule">
   <div class="modal">
     <div class="modal-header"><div class="modal-title">新增规则</div><button class="modal-close" onclick="closeModal('modal-add-rule')">✕</button></div>
@@ -770,7 +792,7 @@ function renderSubscriptions(activeId){
       return;
     }
     if(empty) empty.style.display='none';
-    list.innerHTML=subsData.map(s=>`<div class="sub-card ${s.id===activeId?'active-sub':''}" id="subcard-${s.id}"><div style="font-size:28px">📦</div><div class="sub-info"><div class="flex items-center gap-8"><div class="sub-name">${s.name}</div>${s.id===activeId?'<span class="badge badge-active">已激活</span>':''}<span class="badge badge-${s.status||'pending'}">${{ok:'正常',error:'错误',pending:'待更新'}[s.status]||s.status}</span></div><div class="sub-url">${s.url}</div><div class="sub-meta"><span class="sub-tag">🕐 ${s.last_updated?s.last_updated.replace('T',' '):'从未更新'}</span><span class="sub-tag">📡 ${s.node_count} 个节点</span>${s.auto_update?`<span class="sub-tag">🔄 自动更新 ${s.update_interval}s</span>`:''}</div></div><div class="sub-actions"><button class="btn btn-ghost" onclick="updateSub('${s.id}')">更新</button><button class="btn btn-success" onclick="activateSub('${s.id}')">激活</button><button class="btn btn-danger" onclick="deleteSub('${s.id}')">删除</button></div></div>`).join('');
+    list.innerHTML=subsData.map(s=>`<div class="sub-card ${s.id===activeId?'active-sub':''}" id="subcard-${s.id}"><div style="font-size:28px">📦</div><div class="sub-info"><div class="flex items-center gap-8"><div class="sub-name">${s.name}</div>${s.id===activeId?'<span class="badge badge-active">已激活</span>':''}<span class="badge badge-${s.status||'pending'}">${{ok:'正常',error:'错误',pending:'待更新'}[s.status]||s.status}</span></div><div class="sub-url">${s.url||'(无链接)'}</div><div class="sub-meta"><span class="sub-tag">🕐 ${s.last_updated?s.last_updated.replace('T',' '):'从未更新'}</span><span class="sub-tag">📡 ${s.node_count} 个节点</span>${s.auto_update?`<span class="sub-tag">🔄 自动更新 ${s.update_interval}s</span>`:''}</div></div><div class="sub-actions"><button class="btn btn-ghost" onclick="openEditSub('${s.id}')">修改</button><button class="btn btn-ghost" onclick="updateSub('${s.id}')">更新</button><button class="btn btn-success" onclick="activateSub('${s.id}')">激活</button><button class="btn btn-danger" onclick="deleteSub('${s.id}')">删除</button></div></div>`).join('');
   } catch(e) {
     console.error('[renderSubscriptions ERROR]', e.message, e.stack, 'subsData=', JSON.stringify(subsData).slice(0,500));
     toast('渲染订阅列表失败: '+e.message, 'error');
@@ -855,6 +877,69 @@ function onSubUrlChange(){
     intervalRow.style.opacity='0.5';
     optional.textContent='（无链接时无效）';
   }
+}
+
+let editingSubData=null;
+function openEditSub(id){
+  const sub=subsData.find(s=>s.id===id);
+  if(!sub){toast('订阅不存在','error');return}
+  editingSubData=sub;
+  document.getElementById('edit-sub-id').value=id;
+  document.getElementById('edit-sub-name').value=sub.name||'';
+  document.getElementById('edit-sub-url').value=sub.url||'';
+  document.getElementById('edit-sub-interval').value=sub.update_interval||3600;
+  document.getElementById('edit-sub-file').value='';
+  document.getElementById('edit-sub-file-status').textContent='';
+  openModal('modal-edit-sub');
+}
+
+function onEditSubFileChange(input){
+  const status=document.getElementById('edit-sub-file-status');
+  if(input.files&&input.files.length>0){
+    status.textContent='已选择: '+input.files[0].name;
+  }else{
+    status.textContent='';
+  }
+}
+
+async function submitEditSub(){
+  const id=document.getElementById('edit-sub-id').value;
+  const name=document.getElementById('edit-sub-name').value.trim();
+  const url=document.getElementById('edit-sub-url').value.trim();
+  const interval=parseInt(document.getElementById('edit-sub-interval').value)||3600;
+  const fileInput=document.getElementById('edit-sub-file');
+  const file=fileInput.files[0];
+
+  if(!name){toast('请填写订阅名称','error');return}
+
+  try{
+    if(file){
+      // Use file upload endpoint
+      const formData=new FormData();
+      formData.append('name',name);
+      if(url) formData.append('url',url);
+      formData.append('update_interval',url?interval:0);
+      formData.append('auto_update',url?'true':'false');
+      formData.append('file',file);
+      const res=await fetch(`/api/subscriptions/${id}/file`,{method:'PUT',body:formData});
+      if(!res.ok){
+        const err=await res.json().catch(()=>({detail:'修改失败'}));
+        throw new Error(err.detail||`HTTP ${res.status}`);
+      }
+      toast('订阅已修改（配置文件已更新）','success');
+    }else{
+      // Use JSON endpoint for metadata only
+      const body={name};
+      if(url!==undefined) body.url=url;
+      body.auto_update=!!url;
+      body.update_interval=url?interval:0;
+      await apiFetch(`/api/subscriptions/${id}`,{method:'PUT',body:JSON.stringify(body)});
+      toast('订阅信息已修改','success');
+    }
+    closeModal('modal-edit-sub');
+    await new Promise(r=>setTimeout(r,500));
+    loadSubscriptions(true);
+  }catch(e){toast('修改失败: '+e.message,'error')}
 }
 
 async function updateSub(id){
