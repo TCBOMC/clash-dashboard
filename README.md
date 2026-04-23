@@ -47,10 +47,7 @@ services:
 ```
 
 ```bash
-# 创建配置目录并放入 config.yaml
-mkdir -p clash-config && vim clash-config/config.yaml
-
-# 启动
+# 启动（首次启动会自动生成默认配置）
 docker compose up -d
 
 # 访问 http://localhost:8080
@@ -81,9 +78,6 @@ start.bat
 ```bash
 git clone https://github.com/<你的用户名>/clash-dashboard.git
 cd clash-dashboard
-
-# 编辑你的 config.yaml
-# vim clash-config/config.yaml
 
 # 方式A: 用已发布的镜像（不需要构建）
 docker compose up -d
