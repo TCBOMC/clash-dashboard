@@ -5,61 +5,74 @@
 ## 功能特性
 
 | 页面 | 功能 |
-|------|------|
-| 🏠 概览 | 实时流量图表、运行状态、代理模式切换 |
-| 🌐 代理节点 | 按代理组浏览节点、一键切换、延迟测速 |
+:|------|------|
+| 🏠 概览 | 实时流量图表、运行状态、代理模式切换（规则/全局/直连） |
+| 🌐 代理节点 | 按代理组浏览节点、可折叠分组、一键切换、延迟测速 |
 | 🔗 连接 | 实时刷新活跃连接，搜索过滤，断开单条/全部 |
 | 📋 规则 | 查看当前生效规则（支持搜索/类型过滤/分页） |
 | 📄 日志 | SSE 实时日志流，级别过滤，暂停/清空 |
-| 📦 订阅管理 | 添加/更新/激活/删除订阅，自动下载节点 |
+| 📦 订阅管理 | 添加/更新/激活/删除订阅，自动下载节点；无 URL 订阅支持本地上传配置文件；当前激活订阅更新后自动重新应用 |
 | ⚙️ 规则配置 | 可视化编辑规则 + 编辑原始 YAML 配置 |
-| 🔧 设置 | 混合端口、LAN 访问、IPv6、日志级别、API 密钥 |
+| 🔧 设置 | 代理端口模式（混合/分离）、HTTP 端口、SOCKS5 端口、LAN 访问、IPv6、日志级别、API 密钥 |
+
+**UI 交互增强：**
+- 菜单导航状态持久化（刷新页面保持当前页）
+- 代理组折叠状态持久化
+- 订阅卡片区分激活状态（绿色边框）
 
 ---
 
-## 快速部署（开箱即用）
+## 快速部署
 
-> 适用于已经有可用 Clash 配置文件的用户，无需 clone 代码。
+### 方式一：Docker Compose
 
-### 第一步：创建目录
-
-```bash
-# 在任意目录创建 clash 配置文件夹
-mkdir clash-dashboard && cd clash-dashboard
-```
-
-### 第二步：下载 docker-compose.yml 和 .env
-
-```bash
-# 下载 docker-compose.yml
-curl -O https://raw.githubusercontent.com/<你的用户名>/clash-dashboard/main/docker-compose.yml
-
-# 下载 .env 模板
-curl -O https://raw.githubusercontent.com/<你的用户名>/clash-dashboard/main/.env.example
-cp .env.example .env
-```
-
-### 第三步：放入 Clash 配置文件
-
-```bash
-# 在 clash-dashboard/ 目录下创建 clash-config 子目录，放入你的 config.yaml
-mkdir -p clash-config
-# 将你的 Clash 配置命名为 config.yaml 放入 clash-config/
-```
-
-### 第四步：编辑 docker-compose.yml 中的镜像地址
+在任意目录创建 `docker-compose.yml`，内容如下：
 
 ```yaml
-# 找到这一行，改成你实际发布的镜像地址
-image: ghcr.io/<你的用户名>/clash-dashboard:latest
+services:
+  clash-dashboard:
+    image: trseimc/clash-dashboard:latest
+    container_name: clash-dashboard
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "7890:7890"
+      - "7891:7891"
+    volumes:
+      - ./clash-config:/app/clash-config:rw
+      - ./logs:/app/logs:rw
+    cap_add:
+      - NET_ADMIN
+    network_mode: bridge
 ```
-
-### 第五步：启动
 
 ```bash
+# 创建配置目录并放入 config.yaml
+mkdir -p clash-config && vim clash-config/config.yaml
+
+# 启动
 docker compose up -d
+
 # 访问 http://localhost:8080
 ```
+
+### 方式二：本地免 Docker（Windows）
+
+```bat
+# 双击运行启动脚本（项目根目录）
+start.bat
+```
+
+访问 http://localhost:8080 即可。
+
+### 端口说明
+
+| 端口 | 用途 |
+:|------|------|
+| 8080 | WebUI 管理界面 |
+| 9090 | Clash API（容器内部） |
+| 7890 | HTTP 代理 / 混合代理（取决于端口模式） |
+| 7891 | SOCKS5 代理（只在分离模式下生效） |
 
 ---
 
@@ -136,25 +149,19 @@ clash-dashboard/
 │   └── index.html            # 单页前端应用
 ├── clash-config/             # Clash 配置文件（用户自行准备）
 │   └── config.yaml
+├── bin/                      # Bundled mihomo 二进制（本地模式）
 ├── .github/workflows/
 │   └── docker-publish.yml   # 自动构建 + 推送镜像
 ├── Dockerfile               # Dashboard 镜像构建文件
 ├── docker-compose.yml        # 发布版（引用已发布镜像）
-├── docker-compose.local.yml  # 本地开发版（本地构建）
+├── docker-compose.local.yml  # 本地开发版（本地构建 + bundled mihomo）
+├── docker-compose.prebuilt.yml  # Docker 内嵌 mihomo 版
+├── docker-compose.deploy.yml    # 部署版（仅 Dashboard，无 mihomo）
+├── start.bat                 # Windows 一键启动脚本
 ├── .dockerignore
 ├── .env.example
 └── README.md
 ```
-
-## 端口说明
-
-| 端口 | 用途 |
-|------|------|
-| 8080 | WebUI 管理界面 |
-| 9090 | Clash API（容器内部） |
-| 7890 | HTTP/SOCKS5 混合代理 |
-| 7891 | SOCKS5 独立端口 |
-| 7892 | 透明代理（Linux） |
 
 ## 订阅管理使用流程
 
