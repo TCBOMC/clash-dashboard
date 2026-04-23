@@ -553,6 +553,10 @@ async def update_subscription_now(sub_id: str):
     logger.info(f"[UPDATE:1] Found subscription: {sub['name']}, URL: {sub['url']}")
 
     url = sub["url"]
+    raw = None
+    direct_err = None
+
+    # Step 1: Try direct download
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
             resp = await client.get(
@@ -566,11 +570,51 @@ async def update_subscription_now(sub_id: str):
             )
             resp.raise_for_status()
             raw = resp.text
+            logger.info(f"[UPDATE:1] Direct fetch OK ({len(raw)} chars)")
     except Exception as e:
-        logger.error(f"[UPDATE:FAIL] Fetch error: {e}  type={type(e).__name__}")
-        sub["status"] = "error"
-        save_json_file(SUBSCRIPTIONS_FILE, data)
-        raise HTTPException(status_code=502, detail=f"Failed to fetch subscription: {e}")
+        direct_err = e
+        logger.warning(f"[UPDATE:1] Direct fetch failed: {e}, trying via proxy...")
+
+    # Step 2: If direct failed, try via mihomo proxy (if running)
+    if raw is None:
+        import socket as _socket
+        def _port_open(host: str, port: int) -> bool:
+            try:
+                with _socket.create_connection((host, port), timeout=2):
+                    return True
+            except Exception:
+                return False
+
+        if _port_open("127.0.0.1", 7890):
+            try:
+                async with httpx.AsyncClient(
+                    timeout=30,
+                    follow_redirects=True,
+                    proxy="http://127.0.0.1:7890",
+                ) as client:
+                    resp = await client.get(
+                        url,
+                        headers={"User-Agent": "clash-verge/1.0.0"},
+                    )
+                    resp.raise_for_status()
+                    raw = resp.text
+                    logger.info(f"[UPDATE:1] Proxy fetch OK ({len(raw)} chars)")
+            except Exception as proxy_err:
+                logger.error(f"[UPDATE:1] Proxy fetch also failed: {proxy_err}")
+                sub["status"] = "error"
+                save_json_file(SUBSCRIPTIONS_FILE, data)
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Failed to fetch subscription (direct: {direct_err}, proxy: {proxy_err})"
+                )
+        else:
+            logger.error(f"[UPDATE:FAIL] Direct fetch failed, no proxy available")
+            sub["status"] = "error"
+            save_json_file(SUBSCRIPTIONS_FILE, data)
+            raise HTTPException(status_code=502, detail=f"Failed to fetch subscription: {direct_err}")
+
+    if raw is None:
+        raise HTTPException(status_code=502, detail="Failed to fetch subscription: unknown error")
     logger.debug(f"[UPDATE:2] Fetched {len(raw)} chars from {url}")
 
     # Subscription content may be plain YAML or base64-encoded
