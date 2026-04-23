@@ -700,7 +700,7 @@ function renderProxies(){
       node.dataset.group=gname;node.dataset.node=nodeName;
       const delay=proxy.history?.length?proxy.history[proxy.history.length-1]?.delay:0;
       const delayClass=!delay?'timeout':delay<200?'fast':delay<500?'medium':'slow';
-      node.innerHTML=`<div class="node-name" title="${nodeName}">${nodeName}</div><div class="node-type">${proxy.type||''}</div><div class="node-delay ${delayClass}" id="delay-${encodeURIComponent(nodeName)}">${!delay?'超时':delay+' ms'}</div>`;
+      node.innerHTML=`<div class="node-name" title="${nodeName}">${nodeName}</div><div class="node-type">${proxy.type||''}</div><div class="node-delay ${delayClass}" data-delay-node="${encodeURIComponent(nodeName)}">${!delay?'超时':delay+' ms'}</div>`;
       node.onclick=()=>selectNode(gname,nodeName,node);
       grid.appendChild(node);
     });
@@ -718,24 +718,31 @@ async function selectNode(group,nodeName,el){
 }
 
 async function testAllDelay(){
-  toast('开始测速，请稍候…','info');
-  const nodeEls=document.querySelectorAll('.proxy-node');
-  for(const el of nodeEls){
-    const nodeName=el.dataset.node;
-    if(!nodeName)continue;
-    try{
-      const d=await apiFetch(`/api/proxies/${encodeURIComponent(nodeName)}/delay?timeout=3000`);
-      const delayEl=document.getElementById(`delay-${encodeURIComponent(nodeName)}`);
-      if(delayEl){
-        const cls=d.delay<200?'fast':d.delay<500?'medium':'slow';
-        delayEl.className=`node-delay ${cls}`;
-        delayEl.textContent=d.delay+' ms';
-      }
-    }catch(e){
-      const delayEl=document.getElementById(`delay-${encodeURIComponent(nodeName)}`);
-      if(delayEl){delayEl.className='node-delay timeout';delayEl.textContent='超时'}
-    }
-  }
+  toast('开始测速…','info');
+  const nodeEls=[...document.querySelectorAll('.proxy-node')];
+  // 去重
+  const uniqueNodes=[...new Set(nodeEls.map(el=>el.dataset.node).filter(Boolean))];
+  console.log(`[测速] 总DOM节点=${nodeEls.length}, 去重后=${uniqueNodes.length}`);
+  let done=0;
+  // 并发发送所有请求，谁先完成谁更新 UI
+  const promises=uniqueNodes.map(nodeName=>{
+    const delayEls=document.querySelectorAll(`[data-delay-node="${encodeURIComponent(nodeName)}"]`);
+    return apiFetch(`/api/proxies/${encodeURIComponent(nodeName)}/delay?timeout=3000`)
+      .then(d=>{
+        console.log(`[OK] node=${nodeName} delay=${d.delay} 元素数=${delayEls.length}`);
+        delayEls.forEach(el=>{
+          const cls=d.delay<200?'fast':d.delay<500?'medium':'slow';
+          el.className=`node-delay ${cls}`;el.textContent=d.delay+' ms';
+          void el.offsetHeight;
+        });
+      })
+      .catch(e=>{
+        console.error(`[FAIL] node=${nodeName} err=${e.message} 元素数=${delayEls.length}`);
+        delayEls.forEach(el=>{el.className='node-delay timeout';el.textContent='超时';void el.offsetHeight});
+      })
+      .finally(()=>{done++;console.log(`[进度] ${done}/${uniqueNodes.length}`)});
+  });
+  await Promise.all(promises);
   toast('测速完成','success');
 }
 
