@@ -22,6 +22,7 @@ services:
 
     volumes:
       - ./clash-config:/app/clash-config:rw
+      - ./logs:/app/logs:rw
 
     environment:
       - MIHOMO_API_PORT=9091

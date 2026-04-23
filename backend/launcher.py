@@ -159,7 +159,9 @@ def _start_mihomo(config_path: Path) -> subprocess.Popen | None:
         print(f"[launcher] mihomo already running on port {api_port}, reusing")
         return None
 
-    log_path = PROJECT_DIR / "mihomo.log"
+    log_dir = PROJECT_DIR / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "mihomo.log"
     try:
         log_file = open(log_path, "w")
     except Exception as e:
@@ -244,7 +246,9 @@ def _start_backend(env: dict) -> subprocess.Popen:
         _kill_port(8080)
         _wait_port_free("0.0.0.0", 8080, timeout=8)
 
-    log_path = PROJECT_DIR / "backend.log"
+    log_dir = PROJECT_DIR / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "backend.log"
     try:
         out_file = open(log_path, "w", buffering=1)
         err_file = open(log_path, "a", buffering=1)

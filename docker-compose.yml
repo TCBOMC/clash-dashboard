@@ -26,9 +26,10 @@ services:
       - "7890:7890"    # HTTP 代理
       - "7891:7891"    # SOCKS5 代理
 
-    # Persist config across restarts
+    # Persist config and logs across restarts
     volumes:
       - ./clash-config:/app/clash-config:rw
+      - ./logs:/app/logs:rw
 
     # Environment variables (override with .env file)
     environment:

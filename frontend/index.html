@@ -798,7 +798,11 @@ async function submitAddSub(){
     formData.append('auto_update',url?'true':'false');
     formData.append('file',file);
     try{
-      await fetch('/api/subscriptions/file',{method:'POST',body:formData});
+      const res=await fetch('/api/subscriptions/file',{method:'POST',body:formData});
+      if(!res.ok){
+        const err=await res.json().catch(()=>({detail:'添加失败'}));
+        throw new Error(err.detail||`HTTP ${res.status}`);
+      }
       closeModal('modal-add-sub');
       document.getElementById('sub-form-name').value='';
       document.getElementById('sub-form-url').value='';

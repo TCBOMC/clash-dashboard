@@ -23,6 +23,8 @@ services:
     volumes:
       # 挂载 Clash 配置目录（订阅激活后会自动写入 config.yaml）
       - ./clash-config:/app/clash-config:rw
+      # 挂载日志目录
+      - ./logs:/app/logs:rw
 
     # 允许 Clash 修改网络（创建 TUN 模式必需）
     cap_add:

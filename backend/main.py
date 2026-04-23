@@ -524,7 +524,13 @@ async def create_subscription(sub: SubscriptionCreate):
 
 
 @app.post("/api/subscriptions/file")
-async def create_subscription_from_file():
+async def create_subscription_from_file(
+    name: str = Form(...),
+    url: str | None = Form(None),
+    update_interval: int = Form(0),
+    auto_update: bool = Form(False),
+    file: UploadFile = File(...),
+):
     """
     Upload a YAML config file to create a subscription.
     Accepts multipart form data with:
@@ -534,23 +540,17 @@ async def create_subscription_from_file():
       - auto_update: "true"/"false"
       - file: the YAML config file
     """
-    from fastapi import UploadFile, Form
-    import tempfile
-
-    form = await Request.form()
-    name = form.get("name", "").strip()
-    url = form.get("url", "").strip() or None
-    update_interval = int(form.get("update_interval", 0) or 0)
-    auto_update = form.get("auto_update", "false") == "true"
-    file_item: UploadFile = form.get("file")
+    name = name.strip()
+    url = url.strip() if url else None
+    auto_update = auto_update and bool(url)
 
     if not name:
         raise HTTPException(status_code=400, detail="订阅名称不能为空")
-    if not file_item:
+    if not file:
         raise HTTPException(status_code=400, detail="请选择配置文件")
 
     # Read and parse the uploaded YAML file
-    content = await file_item.read()
+    content = await file.read()
     try:
         raw_text = content.decode("utf-8")
     except Exception:
@@ -583,7 +583,7 @@ async def create_subscription_from_file():
         "id": str(int(time.time() * 1000)),
         "name": name,
         "url": url,
-        "auto_update": auto_update and bool(url),
+        "auto_update": auto_update,
         "update_interval": update_interval if url else 0,
         "last_updated": None,
         "node_count": proxy_count,
