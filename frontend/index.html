@@ -403,6 +403,9 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
   </div>
 </div>
 
+<!-- 无链接订阅通过文件更新的隐藏文件输入 -->
+<input type="file" id="update-by-file-input" accept=".yaml,.yml,.txt" style="display:none" onchange="onUpdateByFileChange(this)" />
+
 <div class="modal-overlay" id="modal-edit-sub">
   <div class="modal">
     <div class="modal-header"><div class="modal-title">修改订阅</div><button class="modal-close" onclick="closeModal('modal-edit-sub')">✕</button></div>
@@ -944,12 +947,51 @@ async function submitEditSub(){
 }
 
 async function updateSub(id){
+  const sub=subsData.find(s=>s.id===id);
+  if(!sub){toast('订阅不存在','error');return}
+
+  if(!sub.url){
+    // 无链接 → 打开文件选择器
+    const input=document.getElementById('update-by-file-input');
+    input.dataset.subId=id;
+    input.click();
+    return;
+  }
+
   toast('正在更新订阅…','info');
   try{
     const d=await apiFetch(`/api/subscriptions/${id}/update`,{method:'POST'});
     toast(`更新成功，共 ${d.node_count} 个节点`,'success');
     // 等待 2 秒让 mihomo 完成重启，再重拉列表
     await new Promise(r=>setTimeout(r,2000));
+    loadSubscriptions(true);
+  }catch(e){toast('更新失败: '+e.message,'error')}
+}
+
+// 无链接订阅通过文件更新时触发此函数
+async function onUpdateByFileChange(input){
+  const file=input.files[0];
+  const id=input.dataset.subId;
+  if(!file||!id) return;
+  input.value=''; // 清空以便下次同一文件能再次触发
+
+  toast('正在通过文件更新订阅…','info');
+  try{
+    const formData=new FormData();
+    // 保留原名和链接，只更新文件
+    const sub=subsData.find(s=>s.id===id);
+    if(sub) formData.append('name',sub.name||'');
+    if(sub&&sub.url) formData.append('url',sub.url);
+    formData.append('update_interval', sub&&sub.url ? (sub.update_interval||3600) : 0);
+    formData.append('auto_update', sub&&sub.url ? 'true' : 'false');
+    formData.append('file',file);
+    const res=await fetch(`/api/subscriptions/${id}/file`,{method:'PUT',body:formData});
+    if(!res.ok){
+      const err=await res.json().catch(()=>({detail:'更新失败'}));
+      throw new Error(err.detail||`HTTP ${res.status}`);
+    }
+    toast('文件更新成功','success');
+    await new Promise(r=>setTimeout(r,1500));
     loadSubscriptions(true);
   }catch(e){toast('更新失败: '+e.message,'error')}
 }
