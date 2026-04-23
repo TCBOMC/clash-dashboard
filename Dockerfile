@@ -47,7 +47,7 @@ RUN chmod +x /usr/local/bin/mihomo
 # Copy application
 COPY backend/           /app/backend/
 COPY frontend/          /app/frontend/
-COPY default-config.yaml /app/clash-config/config.yaml
+COPY clash-config/      /app/clash-config/
 
 # Install Python deps
 RUN pip install --no-cache-dir \

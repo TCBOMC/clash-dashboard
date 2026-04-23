@@ -1,31 +1,7 @@
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-*.egg-info/
-.eggs/
-
-# Node (frontend build)
-node_modules/
-dist/
-*.log
-
-# IDE
-.vscode/
-*.code-workspace
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Clash user config and runtime files (must not be committed)
-clash-config/
-data/
-bin/
-*.log
-mihomo.log
-backend.log
-
-# Docker
-.dockerignore is needed, *.dockerignore is not
+# Clash Dashboard - .gitignore
+# ────────────────────────────────────────────────────────────────
+# clash-config/ 里只跟踪默认配置文件
+# 用户的订阅配置、缓存等全部忽略，重新 clone 后 launcher 会自动生成默认配置
+# ────────────────────────────────────────────────────────────────
+clash-config/*
+!clash-config/config.yaml
