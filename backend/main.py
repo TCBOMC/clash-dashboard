@@ -246,7 +246,10 @@ class RuleItem(BaseModel):
 class SettingsUpdate(BaseModel):
     clash_api_base: str | None = None
     clash_secret: str | None = None
+    proxy_mode: str | None = None  # "mixed" or "separated"
     mixed_port: int | None = None
+    http_port: int | None = None
+    socks_port: int | None = None
     allow_lan: bool | None = None
     log_level: str | None = None
     mode: str | None = None
@@ -927,10 +930,14 @@ async def get_settings():
         clash_cfg = await clash_get("/configs")
     except Exception:
         clash_cfg = {}
+    # Determine proxy mode: mixed-port takes precedence, otherwise separated
+    has_mixed = "mixed-port" in clash_cfg or "port" in clash_cfg
     return {
         "clash_api_base": local.get("clash_api_base", CLASH_API_BASE),
         "clash_secret": "****" if CLASH_SECRET else "",
+        "proxy_mode": "mixed" if has_mixed else "separated",
         "mixed_port": clash_cfg.get("mixed-port", clash_cfg.get("port", 7890)),
+        "http_port": clash_cfg.get("http-port", 7890),
         "socks_port": clash_cfg.get("socks-port", 7891),
         "allow_lan": clash_cfg.get("allow-lan", False),
         "log_level": clash_cfg.get("log-level", "info"),
@@ -946,7 +953,18 @@ async def update_settings(body: SettingsUpdate):
 
     if body.clash_api_base is not None:
         local["clash_api_base"] = body.clash_api_base
-    if body.mixed_port is not None:
+    if body.proxy_mode is not None:
+        if body.proxy_mode == "mixed":
+            # Clear separated ports, set mixed port
+            patch["mixed-port"] = body.mixed_port if body.mixed_port else 7890
+            patch.pop("http-port", None)
+            patch.pop("socks-port", None)
+        elif body.proxy_mode == "separated":
+            # Clear mixed port, set separated ports
+            patch.pop("mixed-port", None)
+            patch["http-port"] = body.http_port if body.http_port else 7890
+            patch["socks-port"] = body.socks_port if body.socks_port else 7891
+    elif body.mixed_port is not None:
         patch["mixed-port"] = body.mixed_port
     if body.allow_lan is not None:
         patch["allow-lan"] = body.allow_lan

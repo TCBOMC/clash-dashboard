@@ -23,8 +23,8 @@ services:
     ports:
       - "8080:8080"    # Dashboard WebUI
       - "9090:9090"    # Mihomo RESTful API
-      - "7890:7890"    # HTTP 代理
-      - "7891:7891"    # SOCKS5 代理
+      - "7890:7890"    # HTTP 代理 / 混合代理
+      - "7891:7891"    # SOCKS5 代理（只在分离模式下生效）
 
     # Persist config and logs across restarts
     volumes:

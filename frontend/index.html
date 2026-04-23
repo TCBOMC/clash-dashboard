@@ -352,8 +352,27 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
         <div class="settings-section">
           <div class="settings-title">Clash 核心配置</div>
           <div class="settings-row">
-            <div class="settings-label"><div class="title">混合端口</div><div class="desc">HTTP 和 SOCKS5 代理共用端口</div></div>
+            <div class="settings-label"><div class="title">代理端口模式</div><div class="desc">选择端口类型</div></div>
+            <div class="settings-control">
+              <div class="mode-selector" id="proxy-mode-bar" style="gap:0">
+                <button class="mode-btn" id="mode-mixed" onclick="setProxyMode('mixed')">混合模式</button>
+                <button class="mode-btn" id="mode-separated" onclick="setProxyMode('separated')">分离模式</button>
+              </div>
+            </div>
+          </div>
+          <div class="settings-row" id="row-mixed-port">
+            <div class="settings-label"><div class="title">混合端口</div><div class="desc">HTTP 和 SOCKS5 共用同一端口</div></div>
             <div class="settings-control"><input type="number" id="s-mixed-port" value="7890" min="1" max="65535" /></div>
+          </div>
+          <div id="row-separated-ports" style="display:none">
+            <div class="settings-row">
+              <div class="settings-label"><div class="title">HTTP 端口</div><div class="desc">纯 HTTP 代理端口</div></div>
+              <div class="settings-control"><input type="number" id="s-http-port" value="7890" min="1" max="65535" /></div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-label"><div class="title">SOCKS5 端口</div><div class="desc">纯 SOCKS5 代理端口</div></div>
+              <div class="settings-control"><input type="number" id="s-socks-port" value="7891" min="1" max="65535" /></div>
+            </div>
           </div>
           <div class="settings-row">
             <div class="settings-label"><div class="title">允许局域网连接</div><div class="desc">允许局域网内其他设备使用代理</div></div>
@@ -1099,10 +1118,20 @@ async function submitRawConfig(){
   try{await apiFetch('/api/config/raw',{method:'POST',body:JSON.stringify({content})});closeModal('modal-raw-config');toast('配置已保存并重载','success')}catch(e){toast('保存失败: '+e.message,'error')}
 }
 
+function setProxyMode(mode){
+  document.getElementById('mode-mixed').classList.toggle('active',mode==='mixed');
+  document.getElementById('mode-separated').classList.toggle('active',mode==='separated');
+  document.getElementById('row-mixed-port').style.display=mode==='mixed'?'':'none';
+  document.getElementById('row-separated-ports').style.display=mode==='separated'?'':'none';
+}
+
 async function loadSettings(){
   try{
     const d=await apiFetch('/api/settings');
+    setProxyMode(d.proxy_mode||'mixed');
     document.getElementById('s-mixed-port').value=d.mixed_port||7890;
+    document.getElementById('s-http-port').value=d.http_port||7890;
+    document.getElementById('s-socks-port').value=d.socks_port||7891;
     document.getElementById('s-log-level').value=d.log_level||'info';
     document.getElementById('s-api-base').value=d.clash_api_base||'';
     setToggle('s-allow-lan',d.allow_lan);
@@ -1112,7 +1141,18 @@ async function loadSettings(){
 }
 
 async function saveSettings(){
-  const body={mixed_port:parseInt(document.getElementById('s-mixed-port').value),log_level:document.getElementById('s-log-level').value,clash_api_base:document.getElementById('s-api-base').value,allow_lan:document.getElementById('s-allow-lan').classList.contains('on'),ipv6:document.getElementById('s-ipv6').classList.contains('on')};
+  const modeBar=document.getElementById('proxy-mode-bar');
+  const isMixed=document.getElementById('mode-mixed').classList.contains('active');
+  const body={
+    proxy_mode:isMixed?'mixed':'separated',
+    mixed_port:parseInt(document.getElementById('s-mixed-port').value),
+    http_port:parseInt(document.getElementById('s-http-port').value),
+    socks_port:parseInt(document.getElementById('s-socks-port').value),
+    log_level:document.getElementById('s-log-level').value,
+    clash_api_base:document.getElementById('s-api-base').value,
+    allow_lan:document.getElementById('s-allow-lan').classList.contains('on'),
+    ipv6:document.getElementById('s-ipv6').classList.contains('on')
+  };
   const secret=document.getElementById('s-secret').value;
   if(secret)body.clash_secret=secret;
   try{await apiFetch('/api/settings',{method:'PATCH',body:JSON.stringify(body)});toast('设置已保存','success')}catch(e){toast('保存失败: '+e.message,'error')}
