@@ -396,6 +396,15 @@ async def reload_rules():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def _reload_mihomo_config():
+    """Reload mihomo config via REST API."""
+    try:
+        await clash_put("/configs?force=true", {})
+        logger.info("[RELOAD] Mihomo config reloaded")
+    except Exception as e:
+        logger.warning(f"[RELOAD] Could not reload clash config: {e}")
+
+
 # ---------------------------------------------------------------------------
 # ── Connections ─────────────────────────────────────────────────────────────
 # ---------------------------------------------------------------------------
@@ -511,6 +520,81 @@ async def create_subscription(sub: SubscriptionCreate):
     }
     data["subscriptions"].append(new_sub)
     save_json_file(SUBSCRIPTIONS_FILE, data)
+    return new_sub
+
+
+@app.post("/api/subscriptions/file")
+async def create_subscription_from_file():
+    """
+    Upload a YAML config file to create a subscription.
+    Accepts multipart form data with:
+      - name: subscription name
+      - url: subscription URL (optional)
+      - update_interval: auto-update interval in seconds (0 = disabled)
+      - auto_update: "true"/"false"
+      - file: the YAML config file
+    """
+    from fastapi import UploadFile, Form
+    import tempfile
+
+    form = await Request.form()
+    name = form.get("name", "").strip()
+    url = form.get("url", "").strip() or None
+    update_interval = int(form.get("update_interval", 0) or 0)
+    auto_update = form.get("auto_update", "false") == "true"
+    file_item: UploadFile = form.get("file")
+
+    if not name:
+        raise HTTPException(status_code=400, detail="订阅名称不能为空")
+    if not file_item:
+        raise HTTPException(status_code=400, detail="请选择配置文件")
+
+    # Read and parse the uploaded YAML file
+    content = await file_item.read()
+    try:
+        raw_text = content.decode("utf-8")
+    except Exception:
+        try:
+            raw_text = content.decode("gbk")
+        except Exception:
+            raise HTTPException(status_code=400, detail="文件编码不支持，请使用 UTF-8 编码的 YAML 文件")
+
+    try:
+        cfg = yaml.safe_load(raw_text)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"YAML 解析失败: {e}")
+
+    proxies = cfg.get("proxies", []) or []
+    proxy_count = len(proxies)
+
+    # Save the config to clash-config directory
+    config_path = CONFIG_DIR / "config.yaml"
+    try:
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write(raw_text)
+        logger.info(f"[FILE:SUB] Saved config with {proxy_count} proxies to {config_path}")
+    except Exception as e:
+        logger.error(f"[FILE:SUB] Failed to save config: {e}")
+        raise HTTPException(status_code=500, detail=f"保存配置文件失败: {e}")
+
+    # Create subscription entry
+    data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})
+    new_sub = {
+        "id": str(int(time.time() * 1000)),
+        "name": name,
+        "url": url,
+        "auto_update": auto_update and bool(url),
+        "update_interval": update_interval if url else 0,
+        "last_updated": None,
+        "node_count": proxy_count,
+        "status": "active" if proxy_count > 0 else "pending",
+    }
+    data["subscriptions"].append(new_sub)
+    save_json_file(SUBSCRIPTIONS_FILE, data)
+
+    # Reload mihomo config
+    await _reload_mihomo_config()
+
     return new_sub
 
 

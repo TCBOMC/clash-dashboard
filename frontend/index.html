@@ -386,8 +386,14 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
     <div class="modal-header"><div class="modal-title">添加订阅</div><button class="modal-close" onclick="closeModal('modal-add-sub')">✕</button></div>
     <div class="modal-body">
       <div class="form-row"><div class="form-label">订阅名称</div><input id="sub-form-name" placeholder="例如：我的机场" /></div>
-      <div class="form-row"><div class="form-label">订阅链接</div><input id="sub-form-url" placeholder="https://…" /></div>
-      <div class="form-row"><div class="form-label">自动更新间隔（秒）</div><input type="number" id="sub-form-interval" value="3600" min="300" /></div>
+      <div class="form-row"><div class="form-label">订阅文件</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="file" id="sub-form-file" accept=".yaml,.yml,.txt" onchange="onSubFileChange(this)" style="flex:1" />
+          <span style="color:var(--text2);font-size:12px">或</span>
+        </div>
+      </div>
+      <div class="form-row"><div class="form-label">订阅链接 <span id="sub-url-optional" style="color:var(--text2);font-weight:normal;font-size:12px"></span></div><input id="sub-form-url" placeholder="https://…" oninput="onSubUrlChange()" /></div>
+      <div class="form-row" id="sub-interval-row"><div class="form-label">自动更新间隔（秒）<span style="color:var(--text2);font-weight:normal;font-size:12px">（无链接时无效）</span></div><input type="number" id="sub-form-interval" value="3600" min="300" /></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add-sub')">取消</button>
@@ -778,16 +784,73 @@ async function submitAddSub(){
   const name=document.getElementById('sub-form-name').value.trim();
   const url=document.getElementById('sub-form-url').value.trim();
   const interval=parseInt(document.getElementById('sub-form-interval').value)||3600;
-  if(!name||!url){toast('请填写名称和订阅链接','error');return}
-  try{
-    await apiFetch('/api/subscriptions',{method:'POST',body:JSON.stringify({name,url,auto_update:true,update_interval:interval})});
-    closeModal('modal-add-sub');
-    document.getElementById('sub-form-name').value='';
-    document.getElementById('sub-form-url').value='';
-    toast('订阅已添加','success');
-    await new Promise(r=>setTimeout(r,500));
-    loadSubscriptions(true);
-  }catch(e){toast('添加失败: '+e.message,'error')}
+  const fileInput=document.getElementById('sub-form-file');
+  const file=fileInput.files[0];
+
+  if(!name){toast('请填写订阅名称','error');return}
+
+  // 文件优先，链接其次
+  if(file){
+    const formData=new FormData();
+    formData.append('name',name);
+    if(url) formData.append('url',url);
+    formData.append('update_interval',url?interval:0);
+    formData.append('auto_update',url?'true':'false');
+    formData.append('file',file);
+    try{
+      await fetch('/api/subscriptions/file',{method:'POST',body:formData});
+      closeModal('modal-add-sub');
+      document.getElementById('sub-form-name').value='';
+      document.getElementById('sub-form-url').value='';
+      fileInput.value='';
+      onSubFileChange(fileInput);
+      toast('订阅已添加','success');
+      await new Promise(r=>setTimeout(r,500));
+      loadSubscriptions(true);
+    }catch(e){toast('添加失败: '+e.message,'error')}
+  }else if(url){
+    try{
+      await apiFetch('/api/subscriptions',{method:'POST',body:JSON.stringify({name,url,auto_update:true,update_interval:interval})});
+      closeModal('modal-add-sub');
+      document.getElementById('sub-form-name').value='';
+      document.getElementById('sub-form-url').value='';
+      toast('订阅已添加','success');
+      await new Promise(r=>setTimeout(r,500));
+      loadSubscriptions(true);
+    }catch(e){toast('添加失败: '+e.message,'error')}
+  }else{
+    toast('请填写订阅链接或选择文件','error');
+  }
+}
+
+function onSubFileChange(input){
+  const hasFile=input.files&&input.files.length>0;
+  const urlInput=document.getElementById('sub-form-url');
+  const intervalRow=document.getElementById('sub-interval-row');
+  const optional=document.getElementById('sub-url-optional');
+  if(hasFile){
+    urlInput.placeholder='留空则不启用自动更新（可选）';
+    urlInput.removeAttribute('required');
+    intervalRow.style.opacity='0.5';
+    optional.textContent='（无链接时无效）';
+  }else{
+    urlInput.placeholder='https://…';
+    intervalRow.style.opacity='1';
+    optional.textContent='';
+  }
+}
+
+function onSubUrlChange(){
+  const url=document.getElementById('sub-form-url').value.trim();
+  const intervalRow=document.getElementById('sub-interval-row');
+  const optional=document.getElementById('sub-url-optional');
+  if(url){
+    intervalRow.style.opacity='1';
+    optional.textContent='';
+  }else{
+    intervalRow.style.opacity='0.5';
+    optional.textContent='（无链接时无效）';
+  }
 }
 
 async function updateSub(id){
