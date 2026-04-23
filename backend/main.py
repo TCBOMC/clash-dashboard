@@ -567,33 +567,32 @@ async def create_subscription_from_file(
     proxies = cfg.get("proxies", []) or []
     proxy_count = len(proxies)
 
-    # Save the config to clash-config directory
-    config_path = CONFIG_DIR / "config.yaml"
+    # Create subscription entry first so we have the ID for file naming
+    sub_id = str(int(time.time() * 1000))
+
+    # Save sub_{id}.yaml so activate can find it later
+    sub_file = CONFIG_DIR / f"sub_{sub_id}.yaml"
     try:
-        with open(config_path, "w", encoding="utf-8") as f:
-            f.write(raw_text)
-        logger.info(f"[FILE:SUB] Saved config with {proxy_count} proxies to {config_path}")
+        sub_file.write_text(raw_text, encoding="utf-8")
+        logger.info(f"[FILE:SUB] Saved sub config with {proxy_count} proxies to {sub_file}")
     except Exception as e:
-        logger.error(f"[FILE:SUB] Failed to save config: {e}")
+        logger.error(f"[FILE:SUB] Failed to save sub config: {e}")
         raise HTTPException(status_code=500, detail=f"保存配置文件失败: {e}")
 
     # Create subscription entry
     data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})
     new_sub = {
-        "id": str(int(time.time() * 1000)),
+        "id": sub_id,
         "name": name,
         "url": url,
         "auto_update": auto_update,
         "update_interval": update_interval if url else 0,
-        "last_updated": None,
+        "last_updated": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "node_count": proxy_count,
-        "status": "active" if proxy_count > 0 else "pending",
+        "status": "ok" if proxy_count > 0 else "pending",
     }
     data["subscriptions"].append(new_sub)
     save_json_file(SUBSCRIPTIONS_FILE, data)
-
-    # Reload mihomo config
-    await _reload_mihomo_config()
 
     return new_sub
 
@@ -634,7 +633,7 @@ async def update_subscription_from_file(
       - auto_update: "true"/"false"
       - file: the YAML config file (optional, if provided will update the config)
     """
-    data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})
+    data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": [], "active_subscription": None})
     sub = next((s for s in data["subscriptions"] if s["id"] == sub_id), None)
     if not sub:
         raise HTTPException(status_code=404, detail="Subscription not found")
@@ -681,6 +680,12 @@ async def update_subscription_from_file(
         sub["last_updated"] = time.strftime("%Y-%m-%dT%H:%M:%S")
 
     save_json_file(SUBSCRIPTIONS_FILE, data)
+
+    # If this subscription is currently active, re-apply config so changes take effect immediately
+    is_active = data.get("active_subscription") == sub_id
+    if is_active:
+        await _apply_sub_to_mihomo(sub_id)
+
     return sub
 
 
@@ -698,7 +703,7 @@ async def update_subscription_now(sub_id: str):
     import traceback
     logger.info(f"[UPDATE] Starting update of subscription {sub_id}")
 
-    data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})
+    data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": [], "active_subscription": None})
     sub = next((s for s in data["subscriptions"] if s["id"] == sub_id), None)
     if not sub:
         raise HTTPException(status_code=404, detail="Subscription not found")
@@ -827,20 +832,75 @@ async def update_subscription_now(sub_id: str):
     save_json_file(SUBSCRIPTIONS_FILE, data)
     logger.info(f"[UPDATE:5] Done. node_count={node_count}, status={sub['status']}")
 
+    # If this subscription is currently active, re-apply config so the update takes effect immediately
+    is_active = data.get("active_subscription") == sub_id
+    if is_active:
+        await _apply_sub_to_mihomo(sub_id)
+
     return {"success": True, "node_count": node_count}
+
+
+async def _apply_sub_to_mihomo(sub_id: str):
+    """
+    Read sub_{id}.yaml, decode (if base64), write to config.yaml, and restart mihomo.
+    Used both when activating a subscription and when re-applying an already-active one
+    after an update (so changes take effect immediately without needing a full re-activate).
+    Raises HTTPException on any failure.
+    """
+    import traceback
+    sub_file = CONFIG_DIR / f"sub_{sub_id}.yaml"
+    if not sub_file.exists():
+        logger.warning(f"[_APPLY] Sub file not found: {sub_file}")
+        raise HTTPException(status_code=400, detail="订阅配置文件不存在，请先点击「更新」下载或通过文件上传配置")
+
+    sub_content = sub_file.read_text(encoding="utf-8").strip()
+    logger.debug(f"[_APPLY] Read {len(sub_content)} chars from {sub_file}")
+
+    content_to_write = sub_content
+    try:
+        yaml.safe_load(sub_content)
+    except Exception as yaml_err:
+        logger.warning(f"[_APPLY] YAML parse failed: {yaml_err} — trying base64 decode")
+        try:
+            import base64 as _base64
+            decoded = _base64.b64decode(sub_content).decode("utf-8")
+            try:
+                yaml.safe_load(decoded)
+                content_to_write = decoded
+                logger.info(f"[_APPLY] Single base64 decode OK")
+            except Exception:
+                try:
+                    double_decoded = _base64.b64decode(decoded.strip()).decode("utf-8")
+                    yaml.safe_load(double_decoded)
+                    content_to_write = double_decoded
+                    logger.info(f"[_APPLY] Double base64 decode OK")
+                except Exception as dd_err:
+                    logger.error(f"[_APPLY] Decode failed: {dd_err}")
+                    raise HTTPException(status_code=400, detail="订阅内容不是有效的 YAML（尝试了 base64 单次和双次解码）")
+        except Exception as b64_err:
+            logger.error(f"[_APPLY] YAML failed ({yaml_err}), base64 also failed ({b64_err})")
+            raise HTTPException(status_code=400, detail="订阅内容不是有效的 YAML 或 base64 格式")
+
+    cfg_path = CONFIG_DIR / "config.yaml"
+    cfg_path.write_text(content_to_write, encoding="utf-8")
+    logger.info(f"[_APPLY] Written {len(content_to_write)} chars to {cfg_path}")
+
+    logger.info(f"[_APPLY] Calling mihomo POST /restart ...")
+    try:
+        result = await clash_post("/restart", {})
+        logger.info(f"[_APPLY] mihomo restart response: {result}")
+    except Exception as restart_err:
+        logger.error(f"[_APPLY] mihomo restart failed: {restart_err}")
+        raise HTTPException(status_code=502, detail=f"重启 mihomo 失败: {restart_err}")
 
 
 @app.post("/api/subscriptions/{sub_id}/activate")
 async def activate_subscription(sub_id: str):
     """
     Activate a subscription as the primary Clash config by restarting mihomo.
-    Each step is logged for debugging.
     """
-    import traceback
     logger.info(f"[ACTIVATE] Starting activation of subscription {sub_id}")
 
-    # Step 1: Load subscriptions
-    logger.debug(f"[ACTIVATE:1] Loading {SUBSCRIPTIONS_FILE}")
     data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})
     sub = next((s for s in data["subscriptions"] if s["id"] == sub_id), None)
     if not sub:
@@ -848,68 +908,8 @@ async def activate_subscription(sub_id: str):
         raise HTTPException(status_code=404, detail="Subscription not found")
     logger.info(f"[ACTIVATE:1] Found subscription: {sub['name']}")
 
-    # Step 2: Check sub file exists
-    sub_file = CONFIG_DIR / f"sub_{sub_id}.yaml"
-    logger.debug(f"[ACTIVATE:2] Sub file path: {sub_file}  exists={sub_file.exists()}")
-    if not sub_file.exists():
-        logger.warning(f"[ACTIVATE:FAIL] Sub file not found: {sub_file}")
-        raise HTTPException(status_code=400, detail="Subscription not downloaded yet. Please update first.")
+    await _apply_sub_to_mihomo(sub_id)
 
-    # Step 3: Read sub file content
-    sub_content = sub_file.read_text(encoding="utf-8").strip()
-    logger.debug(f"[ACTIVATE:3] Read {len(sub_content)} chars from {sub_file}")
-    logger.debug(f"[ACTIVATE:3] First 100 chars: {repr(sub_content[:100])}")
-
-    # Step 4: Try YAML parse; if fails, try base64 decode (with double-decode fallback)
-    content_to_write = sub_content
-    try:
-        yaml.safe_load(sub_content)
-        logger.info(f"[ACTIVATE:4] Content is valid YAML (plain text)")
-    except Exception as yaml_err:
-        logger.warning(f"[ACTIVATE:4] YAML parse failed: {yaml_err} — trying base64 decode")
-        try:
-            import base64 as _base64
-            decoded = _base64.b64decode(sub_content).decode("utf-8")
-            # Some providers double-encode: if decoded still isn't valid YAML, try again
-            try:
-                yaml.safe_load(decoded)
-                content_to_write = decoded
-                logger.info(f"[ACTIVATE:4] Single base64 decode OK, decoded {len(content_to_write)} chars")
-            except Exception:
-                # Try double-decode as fallback
-                try:
-                    double_decoded = _base64.b64decode(decoded.strip()).decode("utf-8")
-                    yaml.safe_load(double_decoded)
-                    content_to_write = double_decoded
-                    logger.info(f"[ACTIVATE:4] Double base64 decode OK, decoded {len(content_to_write)} chars")
-                except Exception as dd_err:
-                    logger.error(f"[ACTIVATE:FAIL] Single decode failed, double decode also failed: {dd_err}")
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Subscription content is not valid YAML (tried single and double base64 decode)"
-                    )
-        except Exception as b64_err:
-            logger.error(f"[ACTIVATE:FAIL] Not valid YAML (yaml_err={yaml_err}), "
-                         f"base64 decode also failed (b64_err={b64_err})")
-            raise HTTPException(status_code=400,
-                               detail="Subscription content is not valid YAML or base64")
-
-    # Step 5: Write to config.yaml
-    cfg_path = CONFIG_DIR / "config.yaml"
-    cfg_path.write_text(content_to_write, encoding="utf-8")
-    logger.info(f"[ACTIVATE:5] Written {len(content_to_write)} chars to {cfg_path}")
-
-    # Step 6: Trigger mihomo graceful restart
-    logger.info(f"[ACTIVATE:6] Calling mihomo POST /restart ...")
-    try:
-        result = await clash_post("/restart", {})
-        logger.info(f"[ACTIVATE:6] mihomo restart response: {result}")
-    except Exception as restart_err:
-        logger.error(f"[ACTIVATE:FAIL] mihomo restart failed: {restart_err}  "
-                     f"type={type(restart_err).__name__}")
-        raise HTTPException(status_code=502, detail=f"Failed to restart mihomo: {restart_err}")
-
-    # Step 7: Update active subscription (always set, even if it was already this one)
     data["active_subscription"] = sub_id
     save_json_file(SUBSCRIPTIONS_FILE, data)
     logger.info(f"[ACTIVATE:7] Done. Active subscription set to {sub_id}")
