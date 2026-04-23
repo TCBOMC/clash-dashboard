@@ -44,8 +44,11 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 .topbar-btn.primary:hover{background:var(--accent-light)}
 .topbar-btn.danger{background:var(--red-dim);color:var(--red)}
 .page-content{flex:1;overflow-y:auto;padding:20px}
-.page{display:none}
-.page.active{display:block}
+.page{display:none!important}
+.page.active{display:block!important}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);transition:all .15s;margin-bottom:2px}
+.nav-item:hover{background:var(--surface);color:var(--text)}
+.nav-item.active{background:var(--accent-dim);color:var(--accent-light)}
 .card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border)}
 .card-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
 .card-title{font-size:13px;font-weight:600}
@@ -71,7 +74,11 @@ canvas#trafficChart{width:100%;height:120px}
 .mode-btn.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent-light)}
 .proxy-group-list{display:flex;flex-direction:column;gap:16px}
 .proxy-group-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
-.proxy-group-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.proxy-group-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface2);border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+.proxy-group-header:hover{background:var(--surface3)}
+.proxy-group-header .chevron{transition:transform .2s;display:inline-block;font-size:12px;color:var(--text2)}
+.proxy-group-card.collapsed .chevron{transform:rotate(-90deg)}
+.proxy-group-card.collapsed .proxy-node-grid{display:none}
 .proxy-group-name{font-size:14px;font-weight:600}
 .proxy-group-type{font-size:11px;color:var(--text2);padding:2px 8px;background:var(--surface3);border-radius:99px}
 .proxy-node-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;padding:12px}
@@ -187,7 +194,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
     <nav class="sidebar-nav">
       <div class="nav-section">
         <div class="nav-section-title">主菜单</div>
-        <div class="nav-item active" data-page="overview" onclick="navigate('overview')"><span class="icon">🏠</span><span class="label">概览</span></div>
+        <div class="nav-item" data-page="overview" onclick="navigate('overview')"><span class="icon">🏠</span><span class="label">概览</span></div>
         <div class="nav-item" data-page="proxies" onclick="navigate('proxies')"><span class="icon">🌐</span><span class="label">代理节点</span></div>
         <div class="nav-item" data-page="connections" onclick="navigate('connections')"><span class="icon">🔗</span><span class="label">连接</span><span class="nav-badge" id="conn-badge">0</span></div>
         <div class="nav-item" data-page="rules" onclick="navigate('rules')"><span class="icon">📋</span><span class="label">规则</span></div>
@@ -216,7 +223,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
     <div class="page-content">
 
       <!-- Overview -->
-      <div class="page active" id="page-overview">
+      <div class="page" id="page-overview">
         <div class="stats-grid mb-20" id="stats-grid">
           <div class="stat-card purple"><div class="stat-icon">⚡</div><div class="stat-label">Clash 版本</div><div class="stat-value" id="stat-version">—</div></div>
           <div class="stat-card blue"><div class="stat-icon">🌐</div><div class="stat-label">运行模式</div><div class="stat-value" id="stat-mode">—</div></div>
@@ -527,6 +534,7 @@ function navigate(page){
   if(page==='subscriptions')loadSubscriptions();
   if(page==='rulesets')loadRulesets();
   if(page==='settings')loadSettings();
+  localStorage.setItem('clash_last_page',page);
 }
 
 async function apiFetch(path,opts={}){
@@ -629,18 +637,29 @@ async function loadProxies(){
   }catch(e){document.getElementById('proxies-loading').innerHTML=`<div class="text-muted">加载失败: ${e.message}</div>`}
 }
 
+function toggleGroup(header){
+  const card=header.closest('.proxy-group-card');
+  const gname=card.querySelector('.proxy-group-name').textContent;
+  card.classList.toggle('collapsed');
+  const collapsed=card.classList.contains('collapsed');
+  const saved=JSON.parse(localStorage.getItem('clash_group_collapsed')||'{}');
+  if(collapsed) saved[gname]=true; else delete saved[gname];
+  localStorage.setItem('clash_group_collapsed',JSON.stringify(saved));
+}
+
 function renderProxies(){
+  const saved=JSON.parse(localStorage.getItem('clash_group_collapsed')||'{}');
   const container=document.getElementById('proxy-group-list');
   container.innerHTML='';
   const groups=Object.entries(proxiesData).filter(([k,v])=>['Selector','URLTest','Fallback','LoadBalance'].includes(v.type));
   if(!groups.length){container.innerHTML='<div class="empty-state"><div class="icon">🌐</div><div class="text">没有找到代理组</div></div>';return}
   groups.forEach(([gname,gdata])=>{
     const card=document.createElement('div');
-    card.className='proxy-group-card';
+    card.className='proxy-group-card'+(saved[gname]?' collapsed':'');
     const members=gdata.all||[];
     const current=gdata.now||'';
     const typeLabel={Selector:'手动选择',URLTest:'自动测速',Fallback:'故障转移',LoadBalance:'负载均衡'}[gdata.type]||gdata.type;
-    card.innerHTML=`<div class="proxy-group-header"><div class="flex items-center gap-8"><div class="proxy-group-name">${gname}</div><span class="proxy-group-type">${typeLabel}</span></div><div class="text-sm text-muted">当前: <b style="color:var(--accent-light)">${current||'—'}</b></div></div><div class="proxy-node-grid" id="group-${gname.replace(/\s/g,'_')}"></div>`;
+    card.innerHTML=`<div class="proxy-group-header" onclick="toggleGroup(this)"><div class="flex items-center gap-8"><span class="chevron">▼</span><div class="proxy-group-name">${gname}</div><span class="proxy-group-type">${typeLabel}</span></div><div class="text-sm text-muted">当前: <b style="color:var(--accent-light)">${current||'—'}</b></div></div><div class="proxy-node-grid" id="group-${gname.replace(/\s/g,'_')}"></div>`;
     container.appendChild(card);
     const grid=card.querySelector('.proxy-node-grid');
     members.forEach(nodeName=>{
@@ -1109,7 +1128,8 @@ function formatBytes(bytes){
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
-  navigate('overview');
+  const lastPage=localStorage.getItem('clash_last_page')||'overview';
+  navigate(lastPage);
   setInterval(async()=>{
     try{const d=await apiFetch('/api/health');const ok=d.status==='ok';document.getElementById('status-dot').className='status-dot'+(ok?'':' offline');document.getElementById('status-text').textContent=ok?(d.clash?.version?.startsWith('v')?d.clash.version:`v${d.clash?.version||''}`):'未连接'}catch{document.getElementById('status-dot').className='status-dot offline'}
   },10000);
