@@ -60,7 +60,7 @@ docker compose up -d
 start.bat
 ```
 
-访问 http://localhost:8080 即可。
+关闭请执行 `stop.bat`。访问 http://localhost:8080 即可。
 
 ### 端口说明
 
@@ -151,7 +151,8 @@ clash-dashboard/
 ├── docker-compose.local.yml  # 本地开发版（本地构建 + bundled mihomo）
 ├── docker-compose.prebuilt.yml  # Docker 内嵌 mihomo 版
 ├── docker-compose.deploy.yml    # 部署版（仅 Dashboard，无 mihomo）
-├── start.bat                 # Windows 一键启动脚本
+├── start.bat                  # Windows 启动脚本
+├── stop.bat                   # Windows 关闭脚本
 ├── .dockerignore
 ├── .env.example
 └── README.md

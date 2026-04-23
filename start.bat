@@ -5,7 +5,7 @@ echo   Clash Dashboard 启动脚本
 echo ======================================
 echo.
 
-cd /d "%~dp0"
+cd /d "%~dp0backend"
 
 REM 检测端口是否已被占用（比进程名检测更可靠）
 netstat -ano | findstr ":8080.*LISTEN" >nul 2>&1
