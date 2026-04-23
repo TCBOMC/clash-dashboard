@@ -77,9 +77,13 @@ canvas#trafficChart{width:100%;height:120px}
 .mode-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .proxy-group-list{display:flex;flex-direction:column;gap:16px}
 .proxy-group-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
-.proxy-group-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface2);border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+.proxy-group-header{display:flex;align-items:center;justify-content:flex-start;gap:12px;flex-wrap:wrap;padding:14px 16px;background:var(--surface2);border-bottom:1px solid var(--border);cursor:pointer;user-select:none;position:relative}
 .proxy-group-header:hover{background:var(--surface3)}
-.proxy-group-header .chevron{transition:transform .2s;display:inline-block;font-size:12px;color:var(--text2)}
+.proxy-group-header .chevron{transition:transform .2s;font-size:12px;color:var(--text2);flex-shrink:0}
+.proxy-group-header .topbar-btn{flex-shrink:0}
+.proxy-group-header .text-sm{flex-shrink:0}
+.proxy-group-header .proxy-group-name{flex-shrink:0;font-weight:500}
+.proxy-group-header .proxy-group-type{flex-shrink:0;color:var(--text2);font-size:12px}
 .proxy-group-card.collapsed .chevron{transform:rotate(-90deg)}
 .proxy-group-card.collapsed .proxy-node-grid{display:none}
 .proxy-group-name{font-size:14px;font-weight:600}
@@ -93,6 +97,10 @@ canvas#trafficChart{width:100%;height:120px}
 .node-type{font-size:10px;color:var(--text2);margin-top:3px}
 .node-delay{font-size:11px;margin-top:4px}
 .node-delay.fast{color:var(--green)}.node-delay.medium{color:var(--yellow)}.node-delay.slow{color:var(--red)}.node-delay.timeout{color:var(--text3)}
+
+.node-speed-btn{position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;font-size:12px;opacity:0;transition:opacity .15s;padding:2px 4px;color:var(--accent-light);line-height:1}
+.proxy-node:hover .node-speed-btn{opacity:1}
+.proxy-node.selected .node-speed-btn{color:var(--accent-light)}
 .sub-list{display:flex;flex-direction:column;gap:12px}
 .sub-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:16px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:border-color .15s}
 .sub-card:hover{border-color:var(--accent)}
@@ -689,7 +697,7 @@ function renderProxies(){
     const members=gdata.all||[];
     const current=gdata.now||'';
     const typeLabel={Selector:'手动选择',URLTest:'自动测速',Fallback:'故障转移',LoadBalance:'负载均衡'}[gdata.type]||gdata.type;
-    card.innerHTML=`<div class="proxy-group-header" onclick="toggleGroup(this)"><div class="flex items-center gap-8"><span class="chevron">▼</span><div class="proxy-group-name">${gname}</div><span class="proxy-group-type">${typeLabel}</span></div><div class="text-sm text-muted">当前: <b style="color:var(--accent-light)">${current||'—'}</b></div></div><div class="proxy-node-grid" id="group-${gname.replace(/\s/g,'_')}"></div>`;
+    card.innerHTML=`<div class="proxy-group-header" onclick="toggleGroup(this)"><span class="chevron">▼</span><div class="proxy-group-name">${gname}</div><span class="proxy-group-type">${typeLabel}</span><div class="text-sm text-muted">当前: <b style="color:var(--accent-light)">${current||'—'}</b></div><button class="topbar-btn" style="padding:3px 10px;font-size:12px;margin-left:auto" onclick="event.stopPropagation();testGroupDelay('${gname.replace(/'/g,"\\'")}')">⚡ 测速</button></div><div class="proxy-node-grid" id="group-${gname.replace(/\s/g,'_')}"></div>`;
     container.appendChild(card);
     const grid=card.querySelector('.proxy-node-grid');
     members.forEach(nodeName=>{
@@ -700,7 +708,7 @@ function renderProxies(){
       node.dataset.group=gname;node.dataset.node=nodeName;
       const delay=proxy.history?.length?proxy.history[proxy.history.length-1]?.delay:0;
       const delayClass=!delay?'timeout':delay<200?'fast':delay<500?'medium':'slow';
-      node.innerHTML=`<div class="node-name" title="${nodeName}">${nodeName}</div><div class="node-type">${proxy.type||''}</div><div class="node-delay ${delayClass}" data-delay-node="${encodeURIComponent(nodeName)}">${!delay?'超时':delay+' ms'}</div>`;
+      node.innerHTML=`<div class="node-name" title="${nodeName}">${nodeName}</div><div class="node-type">${proxy.type||''}</div><div class="node-delay ${delayClass}" data-delay-node="${encodeURIComponent(nodeName)}">${!delay?'超时':delay+' ms'}</div><button class="node-speed-btn" title="测速" onclick="event.stopPropagation();testNodeDelay('${nodeName.replace(/'/g,"\\'")}')">⚡</button>`;
       node.onclick=()=>selectNode(gname,nodeName,node);
       grid.appendChild(node);
     });
@@ -717,33 +725,51 @@ async function selectNode(group,nodeName,el){
   }catch(e){toast('切换失败: '+e.message,'error')}
 }
 
-async function testAllDelay(){
-  toast('开始测速…','info');
-  const nodeEls=[...document.querySelectorAll('.proxy-node')];
-  // 去重
-  const uniqueNodes=[...new Set(nodeEls.map(el=>el.dataset.node).filter(Boolean))];
-  console.log(`[测速] 总DOM节点=${nodeEls.length}, 去重后=${uniqueNodes.length}`);
-  let done=0;
-  // 并发发送所有请求，谁先完成谁更新 UI
-  const promises=uniqueNodes.map(nodeName=>{
-    const delayEls=document.querySelectorAll(`[data-delay-node="${encodeURIComponent(nodeName)}"]`);
+// 更新单个节点的延迟 UI（所有 DOM 副本）
+function _updateNodeDelay(nodeName,delay){
+  const encoded=encodeURIComponent(nodeName);
+  const els=document.querySelectorAll(`[data-delay-node="${encoded}"]`);
+  els.forEach(el=>{
+    if(delay===null||delay===0){
+      el.className='node-delay timeout';el.textContent='超时';
+    }else{
+      const cls=delay<200?'fast':delay<500?'medium':'slow';
+      el.className=`node-delay ${cls}`;el.textContent=delay+' ms';
+    }
+    void el.offsetHeight;
+  });
+}
+
+// 对一组节点名发起并发测速
+async function _speedTestNodes(nodeNames,label){
+  const unique=[...new Set(nodeNames.filter(Boolean))];
+  if(!unique.length)return;
+  toast(`${label} 测速中…`,'info');
+  const promises=unique.map(nodeName=>{
     return apiFetch(`/api/proxies/${encodeURIComponent(nodeName)}/delay?timeout=3000`)
-      .then(d=>{
-        console.log(`[OK] node=${nodeName} delay=${d.delay} 元素数=${delayEls.length}`);
-        delayEls.forEach(el=>{
-          const cls=d.delay<200?'fast':d.delay<500?'medium':'slow';
-          el.className=`node-delay ${cls}`;el.textContent=d.delay+' ms';
-          void el.offsetHeight;
-        });
-      })
-      .catch(e=>{
-        console.error(`[FAIL] node=${nodeName} err=${e.message} 元素数=${delayEls.length}`);
-        delayEls.forEach(el=>{el.className='node-delay timeout';el.textContent='超时';void el.offsetHeight});
-      })
-      .finally(()=>{done++;console.log(`[进度] ${done}/${uniqueNodes.length}`)});
+      .then(d=>_updateNodeDelay(nodeName,d.delay))
+      .catch(()=>_updateNodeDelay(nodeName,0));
   });
   await Promise.all(promises);
-  toast('测速完成','success');
+  toast(`${label} 测速完成`,'success');
+}
+
+// 测单个节点
+async function testNodeDelay(nodeName){
+  await _speedTestNodes([nodeName],'节点 '+nodeName);
+}
+
+// 测指定代理组内的所有节点
+async function testGroupDelay(gname){
+  const members=proxiesData[gname]?.all||[];
+  await _speedTestNodes(members,'组 '+gname);
+}
+
+// 测全部
+async function testAllDelay(){
+  const nodeEls=[...document.querySelectorAll('.proxy-node')];
+  const uniqueNodes=[...new Set(nodeEls.map(el=>el.dataset.node).filter(Boolean))];
+  await _speedTestNodes(uniqueNodes,'全量');
 }
 
 async function loadConnections(){
