@@ -49,8 +49,8 @@ COPY backend/           /app/backend/
 COPY frontend/          /app/frontend/
 COPY default-config.yaml /app/clash-config/config.yaml
 
-# Download GeoIP database for mihomo
-RUN curl -fSL "https://github.com/Loyalsoldier/geoip/releases/download/v202504040037/GeoLite2-Country.mmdb" \
+# Download GeoIP database for mihomo (via jsdelivr CDN)
+RUN curl -fSL "https://cdn.jsdelivr.net/gh/Loyalsoldier/geoip@release/Country.mmdb" \
     -o /app/clash-config/Country.mmdb \
     && mkdir -p /root/.config/mihomo \
     && cp /app/clash-config/Country.mmdb /root/.config/mihomo/Country.mmdb
