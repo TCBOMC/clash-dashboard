@@ -18,24 +18,36 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
 #app{display:flex;height:100vh}
-#sidebar{width:var(--sidebar-w);background:var(--bg);display:flex;flex-direction:column;border-right:1px solid var(--border);flex-shrink:0}
+#sidebar{width:var(--sidebar-w);background:var(--bg);display:flex;flex-direction:column;border-right:1px solid var(--border);flex-shrink:0;transition:width .25s ease}
 .sidebar-logo{display:flex;align-items:center;gap:10px;padding:20px 16px 16px;border-bottom:1px solid var(--border)}
-.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),#9d6bff);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),#9d6bff);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
 .logo-text{font-size:16px;font-weight:700}
 .logo-sub{font-size:11px;color:var(--text2)}
+.logo-text-wrap{flex:1;min-width:0}
+.sidebar-collapse-btn{width:36px;height:36px;background:transparent;border:2px solid var(--border);border-radius:10px;color:var(--text2);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s;white-space:nowrap}
+.sidebar-collapse-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+#sidebar.collapsed{width:69px}
+#sidebar.collapsed .logo-text-wrap,#sidebar.collapsed .nav-item .label,#sidebar.collapsed .sidebar-status span:not(.status-dot),#sidebar.collapsed .sidebar-logo .logo-text,#sidebar.collapsed .sidebar-logo .logo-sub{display:none}
+#sidebar.collapsed .sidebar-logo{padding:20px 16px 16px}
+#sidebar.collapsed .nav-item{justify-content:center;padding:9px 10px}
+#sidebar.collapsed .sidebar-footer{padding:12px}
+#sidebar.collapsed .sidebar-status{justify-content:center}
+#sidebar.collapsed .nav-badge{margin:0;position:absolute;top:2px;right:2px;font-size:8px;padding:1px 4px}
 .sidebar-nav{flex:1;padding:12px 8px;overflow-y:auto}
 .nav-section{margin-bottom:4px}
-.nav-section-title{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:6px 10px 4px}
+.nav-section-title{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:6px 10px 4px;white-space:nowrap}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);transition:all .15s;margin-bottom:2px}
 .nav-item:hover{background:var(--surface);color:var(--text)}
 .nav-item.active{background:var(--accent-dim);color:var(--accent-light)}
+.nav-item{position:relative}
 .nav-item .icon{font-size:16px;width:20px;text-align:center;flex-shrink:0}
-.nav-item .label{font-size:13px;font-weight:500}
+.nav-item .label{font-size:13px;font-weight:500;white-space:nowrap}
 .nav-badge{margin-left:auto;background:var(--accent);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px}
 .sidebar-footer{padding:12px 8px;border-top:1px solid var(--border)}
 .status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px}
 .status-dot.offline{background:var(--red)}
-.sidebar-status{display:flex;align-items:center;padding:8px 12px;color:var(--text2);font-size:12px}
+.sidebar-status{display:flex;align-items:center;padding:8px 12px;color:var(--text2);font-size:12px;white-space:nowrap}
 #main{flex:1;display:flex;flex-direction:column;overflow:hidden}
 .topbar{height:52px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;flex-shrink:0}
 .topbar-title{font-size:15px;font-weight:600;flex:1}
@@ -200,8 +212,8 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 <div id="app">
   <aside id="sidebar">
     <div class="sidebar-logo">
-      <div class="logo-icon">⚡</div>
-      <div><div class="logo-text">Clash</div><div class="logo-sub">Dashboard</div></div>
+      <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" title="收起/展开侧边栏">‹</button>
+      <div class="logo-text-wrap"><div class="logo-text">Clash</div><div class="logo-sub">Dashboard</div></div>
     </div>
     <nav class="sidebar-nav">
       <div class="nav-section">
@@ -562,6 +574,45 @@ const RULES_PER_PAGE=50;
 let localRuleEdits=[];
 let trafficHistory={dl:new Array(60).fill(0),ul:new Array(60).fill(0)};
 let chartCtx=null,trafficTimer=null,prevDl=0,prevUl=0;
+
+// 侧边栏收起/展开
+function initSidebarCollapse(){
+  const sidebar=document.getElementById('sidebar');
+  const collapseBtn=document.getElementById('sidebar-collapse-btn');
+  if(!sidebar||!collapseBtn)return;
+  const collapsedW=69; // 折叠宽度(px)
+  // 恢复保存的状态
+  if(localStorage.getItem('sidebar-collapsed')==='true'){
+    sidebar.classList.add('collapsed');
+    collapseBtn.textContent='›';
+  }
+  // 点击按钮：切换收起/展开
+  collapseBtn.addEventListener('click',()=>{
+    const isCollapsed=sidebar.classList.toggle('collapsed');
+    collapseBtn.textContent=isCollapsed?'›':'‹';
+    localStorage.setItem('sidebar-collapsed',isCollapsed?'true':'false');
+  });
+  // 根据窗口宽度自动折叠/展开
+  function autoCollapse(){
+    const root=document.documentElement;
+    const expandedW=parseInt(getComputedStyle(root).getPropertyValue('--sidebar-w'))||220;
+    const winW=window.innerWidth;
+    // 当展开宽度 > 窗口1/4 时折叠
+    if(expandedW>winW/4){
+      if(!sidebar.classList.contains('collapsed')){
+        sidebar.classList.add('collapsed');
+        collapseBtn.textContent='›';
+      }
+    }else{
+      if(sidebar.classList.contains('collapsed')){
+        sidebar.classList.remove('collapsed');
+        collapseBtn.textContent='‹';
+      }
+    }
+  }
+  autoCollapse();
+  window.addEventListener('resize',autoCollapse);
+}
 
 function navigate(page){
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
@@ -1288,6 +1339,7 @@ function formatBytes(bytes){
 
 let subsRefreshTimer=null;
 document.addEventListener('DOMContentLoaded',()=>{
+  initSidebarCollapse();
   const lastPage=localStorage.getItem('clash_last_page')||'overview';
   navigate(lastPage);
   setInterval(async()=>{
