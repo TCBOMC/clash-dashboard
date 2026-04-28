@@ -351,7 +351,14 @@ async def clash_delete(path: str) -> Any:
 
 def load_json_file(path: Path, default: Any = None) -> Any:
     if path.exists():
-        return json.loads(path.read_text(encoding="utf-8"))
+        try:
+            content = path.read_text(encoding="utf-8").strip()
+            if not content:  # 空文件或只含空白
+                return default if default is not None else {}
+            return json.loads(content)
+        except (json.JSONDecodeError, ValueError):
+            # 文件损坏或无法解析，返回默认值
+            return default if default is not None else {}
     return default if default is not None else {}
 
 
