@@ -662,7 +662,7 @@ async def list_subscriptions():
 
 @app.post("/api/subscriptions")
 async def create_subscription(sub: SubscriptionCreate):
-    data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})
+    data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": [], "active_subscription": None})
     new_sub = {
         "id": str(int(time.time() * 1000)),
         "name": sub.name,
@@ -735,7 +735,7 @@ async def create_subscription_from_file(
         raise HTTPException(status_code=500, detail=f"保存配置文件失败: {e}")
 
     # Create subscription entry
-    data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})
+    data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": [], "active_subscription": None})
     new_sub = {
         "id": sub_id,
         "name": name,

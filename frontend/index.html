@@ -934,28 +934,62 @@ async function submitAddSub(){
         const err=await res.json().catch(()=>({detail:'添加失败'}));
         throw new Error(err.detail||`HTTP ${res.status}`);
       }
+      const newSub=await res.json();
       closeModal('modal-add-sub');
       document.getElementById('sub-form-name').value='';
       document.getElementById('sub-form-url').value='';
       fileInput.value='';
       onSubFileChange(fileInput);
-      toast('订阅已添加','success');
-      await new Promise(r=>setTimeout(r,500));
+      toast('订阅已添加，正在处理...','success');
+      await new Promise(r=>setTimeout(r,300));
       loadSubscriptions(true);
+      // 后台：如果是文件且没有活跃订阅，异步激活
+      setTimeout(()=>autoActivateIfNeeded(newSub.id), 100);
     }catch(e){toast('添加失败: '+e.message,'error')}
   }else if(url){
     try{
-      await apiFetch('/api/subscriptions',{method:'POST',body:JSON.stringify({name,url,auto_update:autoUpdate,update_interval:autoUpdate?interval:0})});
+      const newSub=await apiFetch('/api/subscriptions',{method:'POST',body:JSON.stringify({name,url,auto_update:autoUpdate,update_interval:autoUpdate?interval:0})});
       closeModal('modal-add-sub');
       document.getElementById('sub-form-name').value='';
       document.getElementById('sub-form-url').value='';
       document.getElementById('sub-form-auto-update').classList.remove('on');
-      toast('订阅已添加','success');
-      await new Promise(r=>setTimeout(r,500));
+      toast('订阅已添加，正在更新...','success');
+      await new Promise(r=>setTimeout(r,300));
       loadSubscriptions(true);
+      // 后台：异步更新并激活
+      setTimeout(()=>asyncUpdateAndActivate(newSub.id), 100);
     }catch(e){toast('添加失败: '+e.message,'error')}
   }else{
     toast('请填写订阅链接或选择文件','error');
+  }
+}
+
+async function asyncUpdateAndActivate(subId){
+  try{
+    await apiFetch(`/api/subscriptions/${subId}/update`,{method:'POST'});
+    await new Promise(r=>setTimeout(r,500));
+    await loadSubscriptions(true);
+    await autoActivateIfNeeded(subId);
+  }catch(e){
+    console.error('[asyncUpdateAndActivate] failed:',e);
+    toast('更新失败: '+e.message,'error');
+    loadSubscriptions(true);
+  }
+}
+
+async function autoActivateIfNeeded(subId){
+  try{
+    const d=await apiFetch('/api/subscriptions');
+    if(!d.active_subscription){
+      // 没有活跃订阅，激活这个
+      await apiFetch(`/api/subscriptions/${subId}/activate`,{method:'POST'});
+      toast('订阅已激活','success');
+      await new Promise(r=>setTimeout(r,500));
+      loadSubscriptions(true);
+    }
+  }catch(e){
+    console.error('[autoActivateIfNeeded] failed:',e);
+    loadSubscriptions(true);
   }
 }
 
