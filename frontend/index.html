@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<link rel="icon" type="image/png" href="favicon.png" />
+<link rel="icon" type="image/png" href="/favicon.png" />
 <title>Clash Dashboard</title>
 <style>
 :root{--bg:#1a1b23;--bg2:#13141a;--surface:#22242f;--surface2:#2a2d3a;--surface3:#32364a;--border:#383c52;--text:#e2e4f0;--text2:#9599b3;--text3:#5a5f7a;--accent:#7c5cfc;--accent-light:#9d82ff;--accent-dim:rgba(124,92,252,.15);--green:#46d39a;--green-dim:rgba(70,211,154,.15);--red:#ff6b6b;--red-dim:rgba(255,107,107,.15);--yellow:#ffd166;--yellow-dim:rgba(255,209,102,.15);--blue:#4ecdc4;--blue-dim:rgba(78,205,196,.15);--sidebar-w:220px;--radius:10px;--radius-sm:6px;--shadow:0 4px 24px rgba(0,0,0,.4)}
@@ -432,7 +432,17 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
         </div>
       </div>
       <div class="form-row"><div class="form-label">订阅链接 <span id="sub-url-optional" style="color:var(--text2);font-weight:normal;font-size:12px"></span></div><input id="sub-form-url" placeholder="https://…" oninput="onSubUrlChange()" /></div>
-      <div class="form-row" id="sub-interval-row"><div class="form-label">自动更新间隔（秒）<span style="color:var(--text2);font-weight:normal;font-size:12px">（无链接时无效）</span></div><input type="number" id="sub-form-interval" value="3600" min="300" /></div>
+      <div class="form-row" id="sub-auto-update-row" style="display:none">
+        <div class="form-label">自动更新</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="toggle" id="sub-form-auto-update" onclick="toggleSubAutoUpdate('add')"></div>
+          <span style="color:var(--text2);font-size:12px">开启后按设定间隔自动更新</span>
+        </div>
+      </div>
+      <div class="form-row" id="sub-interval-row" style="display:none">
+        <div class="form-label">自动更新间隔（分钟）</div>
+        <input type="number" id="sub-form-interval" value="60" min="5" />
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add-sub')">取消</button>
@@ -451,7 +461,17 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
       <input type="hidden" id="edit-sub-id" />
       <div class="form-row"><div class="form-label">订阅名称</div><input id="edit-sub-name" placeholder="订阅名称" /></div>
       <div class="form-row"><div class="form-label">订阅链接 <span style="color:var(--text2);font-weight:normal;font-size:12px">（留空则不修改）</span></div><input id="edit-sub-url" placeholder="https://…" /></div>
-      <div class="form-row"><div class="form-label">自动更新间隔（秒）<span style="color:var(--text2);font-weight:normal;font-size:12px">（无链接时无效）</span></div><input type="number" id="edit-sub-interval" value="3600" min="300" /></div>
+      <div class="form-row" id="edit-auto-update-row">
+        <div class="form-label">自动更新</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="toggle" id="edit-sub-auto-update" onclick="toggleSubAutoUpdate('edit')"></div>
+          <span style="color:var(--text2);font-size:12px">开启后按设定间隔自动更新</span>
+        </div>
+      </div>
+      <div class="form-row" id="edit-interval-row">
+        <div class="form-label">自动更新间隔（分钟）</div>
+        <input type="number" id="edit-sub-interval" value="60" min="5" />
+      </div>
       <div class="form-row"><div class="form-label">手动更新配置文件</div>
         <div style="display:flex;gap:8px;align-items:center">
           <input type="file" id="edit-sub-file" accept=".yaml,.yml,.txt" onchange="onEditSubFileChange(this)" style="flex:1" />
@@ -772,6 +792,7 @@ async function testAllDelay(){
   const uniqueNodes=[...new Set(nodeEls.map(el=>el.dataset.node).filter(Boolean))];
   await _speedTestNodes(uniqueNodes,'全量');
 }
+}
 
 async function loadConnections(){
   try{
@@ -879,7 +900,7 @@ function renderSubscriptions(activeId){
       return;
     }
     if(empty) empty.style.display='none';
-    list.innerHTML=subsData.map(s=>`<div class="sub-card ${s.id===activeId?'active-sub':''}" id="subcard-${s.id}" onclick="activateSubByClick('${s.id}','${activeId||''}')"><div style="font-size:28px">📦</div><div class="sub-info"><div class="flex items-center gap-8"><div class="sub-name">${s.name}</div>${s.id===activeId?'<span class="badge badge-active">已激活</span>':''}<span class="badge badge-${s.status||'pending'}">${{ok:'正常',error:'错误',pending:'待更新'}[s.status]||s.status}</span></div><div class="sub-url">${s.url||'(无链接)'}</div><div class="sub-meta"><span class="sub-tag">🕐 ${s.last_updated?s.last_updated.replace('T',' '):'从未更新'}</span><span class="sub-tag">📡 ${s.node_count} 个节点</span>${s.auto_update?`<span class="sub-tag">🔄 自动更新 ${s.update_interval}s</span>`:''}</div></div><div class="sub-actions" onclick="event.stopPropagation()"><button class="btn btn-ghost" onclick="openEditSub('${s.id}')">修改</button><button class="btn btn-ghost" onclick="updateSub('${s.id}')">更新</button><button class="btn btn-danger" onclick="deleteSub('${s.id}')">删除</button></div></div>`).join('');
+    list.innerHTML=subsData.map(s=>`<div class="sub-card ${s.id===activeId?'active-sub':''}" id="subcard-${s.id}" onclick="activateSubByClick('${s.id}','${activeId||''}')"><div style="font-size:28px">📦</div><div class="sub-info"><div class="flex items-center gap-8"><div class="sub-name">${s.name}</div>${s.id===activeId?'<span class="badge badge-active">已激活</span>':''}<span class="badge badge-${s.status||'pending'}">${{ok:'正常',error:'错误',pending:'待更新'}[s.status]||s.status}</span></div><div class="sub-url">${s.url||'(无链接)'}</div><div class="sub-meta"><span class="sub-tag">🕐 ${s.last_updated?s.last_updated.replace('T',' '):'从未更新'}</span><span class="sub-tag">📡 ${s.node_count} 个节点</span>${s.auto_update?`<span class="sub-tag">🔄 自动更新 ${s.update_interval}分钟</span>`:''}</div></div><div class="sub-actions" onclick="event.stopPropagation()"><button class="btn btn-ghost" onclick="openEditSub('${s.id}')">修改</button><button class="btn btn-ghost" onclick="updateSub('${s.id}')">更新</button><button class="btn btn-danger" onclick="deleteSub('${s.id}')">删除</button></div></div>`).join('');
   } catch(e) {
     console.error('[renderSubscriptions ERROR]', e.message, e.stack, 'subsData=', JSON.stringify(subsData).slice(0,500));
     toast('渲染订阅列表失败: '+e.message, 'error');
@@ -892,7 +913,8 @@ function closeModal(id){document.getElementById(id).classList.remove('show')}
 async function submitAddSub(){
   const name=document.getElementById('sub-form-name').value.trim();
   const url=document.getElementById('sub-form-url').value.trim();
-  const interval=parseInt(document.getElementById('sub-form-interval').value)||3600;
+  const interval=parseInt(document.getElementById('sub-form-interval').value)||60;
+  const autoUpdate=document.getElementById('sub-form-auto-update').classList.contains('on');
   const fileInput=document.getElementById('sub-form-file');
   const file=fileInput.files[0];
 
@@ -903,8 +925,8 @@ async function submitAddSub(){
     const formData=new FormData();
     formData.append('name',name);
     if(url) formData.append('url',url);
-    formData.append('update_interval',url?interval:0);
-    formData.append('auto_update',url?'true':'false');
+    formData.append('update_interval',(autoUpdate&&url)?interval:0);
+    formData.append('auto_update',(autoUpdate&&url)?'true':'false');
     formData.append('file',file);
     try{
       const res=await fetch('/api/subscriptions/file',{method:'POST',body:formData});
@@ -923,10 +945,11 @@ async function submitAddSub(){
     }catch(e){toast('添加失败: '+e.message,'error')}
   }else if(url){
     try{
-      await apiFetch('/api/subscriptions',{method:'POST',body:JSON.stringify({name,url,auto_update:true,update_interval:interval})});
+      await apiFetch('/api/subscriptions',{method:'POST',body:JSON.stringify({name,url,auto_update:autoUpdate,update_interval:autoUpdate?interval:0})});
       closeModal('modal-add-sub');
       document.getElementById('sub-form-name').value='';
       document.getElementById('sub-form-url').value='';
+      document.getElementById('sub-form-auto-update').classList.remove('on');
       toast('订阅已添加','success');
       await new Promise(r=>setTimeout(r,500));
       loadSubscriptions(true);
@@ -955,15 +978,24 @@ function onSubFileChange(input){
 
 function onSubUrlChange(){
   const url=document.getElementById('sub-form-url').value.trim();
+  const autoUpdateRow=document.getElementById('sub-auto-update-row');
   const intervalRow=document.getElementById('sub-interval-row');
   const optional=document.getElementById('sub-url-optional');
   if(url){
-    intervalRow.style.opacity='1';
+    autoUpdateRow.style.display='';
+    intervalRow.style.display='';
     optional.textContent='';
   }else{
-    intervalRow.style.opacity='0.5';
+    autoUpdateRow.style.display='none';
+    intervalRow.style.display='none';
+    document.getElementById('sub-form-auto-update').classList.remove('on');
     optional.textContent='（无链接时无效）';
   }
+}
+
+function toggleSubAutoUpdate(mode){
+  const toggle=document.getElementById(mode==='add'?'sub-form-auto-update':'edit-sub-auto-update');
+  toggle.classList.toggle('on');
 }
 
 let editingSubData=null;
@@ -974,9 +1006,16 @@ function openEditSub(id){
   document.getElementById('edit-sub-id').value=id;
   document.getElementById('edit-sub-name').value=sub.name||'';
   document.getElementById('edit-sub-url').value=sub.url||'';
-  document.getElementById('edit-sub-interval').value=sub.update_interval||3600;
+  document.getElementById('edit-sub-interval').value=sub.update_interval||60;
   document.getElementById('edit-sub-file').value='';
   document.getElementById('edit-sub-file-status').textContent='';
+  // Set auto_update toggle state
+  const toggle=document.getElementById('edit-sub-auto-update');
+  if(sub.auto_update&&sub.url){
+    toggle.classList.add('on');
+  }else{
+    toggle.classList.remove('on');
+  }
   openModal('modal-edit-sub');
 }
 
@@ -993,7 +1032,8 @@ async function submitEditSub(){
   const id=document.getElementById('edit-sub-id').value;
   const name=document.getElementById('edit-sub-name').value.trim();
   const url=document.getElementById('edit-sub-url').value.trim();
-  const interval=parseInt(document.getElementById('edit-sub-interval').value)||3600;
+  const interval=parseInt(document.getElementById('edit-sub-interval').value)||60;
+  const autoUpdate=document.getElementById('edit-sub-auto-update').classList.contains('on');
   const fileInput=document.getElementById('edit-sub-file');
   const file=fileInput.files[0];
 
@@ -1005,8 +1045,8 @@ async function submitEditSub(){
       const formData=new FormData();
       formData.append('name',name);
       if(url) formData.append('url',url);
-      formData.append('update_interval',url?interval:0);
-      formData.append('auto_update',url?'true':'false');
+      formData.append('update_interval',(autoUpdate&&url)?interval:0);
+      formData.append('auto_update',(autoUpdate&&url)?'true':'false');
       formData.append('file',file);
       const res=await fetch(`/api/subscriptions/${id}/file`,{method:'PUT',body:formData});
       if(!res.ok){
@@ -1018,8 +1058,8 @@ async function submitEditSub(){
       // Use JSON endpoint for metadata only
       const body={name};
       if(url!==undefined) body.url=url;
-      body.auto_update=!!url;
-      body.update_interval=url?interval:0;
+      body.auto_update=autoUpdate&&!!url;
+      body.update_interval=(autoUpdate&&url)?interval:0;
       await apiFetch(`/api/subscriptions/${id}`,{method:'PUT',body:JSON.stringify(body)});
       toast('订阅信息已修改','success');
     }
@@ -1212,12 +1252,19 @@ function formatBytes(bytes){
   return(bytes/Math.pow(k,i)).toFixed(i>0?1:0)+' '+sizes[i];
 }
 
+let subsRefreshTimer=null;
 document.addEventListener('DOMContentLoaded',()=>{
   const lastPage=localStorage.getItem('clash_last_page')||'overview';
   navigate(lastPage);
   setInterval(async()=>{
     try{const d=await apiFetch('/api/health');const ok=d.status==='ok';document.getElementById('status-dot').className='status-dot'+(ok?'':' offline');document.getElementById('status-text').textContent=ok?(d.clash?.version?.startsWith('v')?d.clash.version:`v${d.clash?.version||''}`):'未连接'}catch{document.getElementById('status-dot').className='status-dot offline'}
   },10000);
+  // Auto-refresh subscriptions list every 30 seconds when on subscriptions page
+  setInterval(()=>{
+    if(currentPage==='subscriptions'){
+      loadSubscriptions(true);
+    }
+  },30000);
 });
 </script>
 </body>

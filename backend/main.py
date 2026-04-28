@@ -89,6 +89,151 @@ logger.info("=" * 60)
 app = FastAPI(title="Clash Dashboard API", version="1.0.0")
 
 
+# ---------------------------------------------------------------------------
+# ── Subscription Auto-Update Scheduler ─────────────────────────────────────
+# ---------------------------------------------------------------------------
+
+async def _auto_update_scheduler():
+    """Background task: check and trigger subscription updates based on schedule."""
+    import datetime as _dt
+    while True:
+        try:
+            await asyncio.sleep(60)  # Check every minute
+
+            data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})
+            now = time.time()
+
+            for sub in data.get("subscriptions", []):
+                if not sub.get("auto_update") or not sub.get("url"):
+                    continue
+
+                interval_minutes = sub.get("update_interval", 0)
+                if interval_minutes <= 0:
+                    continue
+
+                last_updated = sub.get("last_updated")
+                if last_updated:
+                    try:
+                        last_ts = _dt.datetime.strptime(last_updated, "%Y-%m-%dT%H:%M:%S").timestamp()
+                    except Exception:
+                        last_ts = 0
+                else:
+                    last_ts = 0
+
+                interval_seconds = interval_minutes * 60
+                if now - last_ts >= interval_seconds:
+                    sub_id = sub["id"]
+                    
+                    # Skip if already being updated
+                    if sub_id in _updating_subs:
+                        logger.debug(f"[AUTO-UPDATE] Skipping {sub['name']}: already being updated")
+                        continue
+                    
+                    # Add to updating set
+                    _updating_subs.add(sub_id)
+                    logger.info(f"[AUTO-UPDATE] Triggering auto-update for subscription: {sub['name']} (id={sub_id})")
+                    try:
+                        # Reuse the update logic but don't raise on failure
+                        await _update_subscription_content(sub_id)
+                        logger.info(f"[AUTO-UPDATE] Successfully updated: {sub['name']}")
+                    except Exception as e:
+                        logger.error(f"[AUTO-UPDATE] Failed to update {sub['name']}: {e}")
+                    finally:
+                        # Always remove from updating set
+                        _updating_subs.discard(sub_id)
+
+        except asyncio.CancelledError:
+            logger.info("[AUTO-UPDATE] Scheduler cancelled, shutting down")
+            break
+        except Exception as e:
+            logger.error(f"[AUTO-UPDATE] Scheduler error: {e}")
+
+
+async def _update_subscription_content(sub_id: str):
+    """Internal function to update subscription content without HTTP error raising."""
+    # This is a simplified version of update_subscription_now focusing on content update
+    import base64 as _base64
+    import datetime as _dt
+
+    data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": [], "active_subscription": None})
+    sub = next((s for s in data["subscriptions"] if s["id"] == sub_id), None)
+    if not sub or not sub.get("url"):
+        return
+
+    url = sub["url"]
+    raw = None
+
+    # Try direct download
+    try:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            resp = await client.get(url, headers={"User-Agent": "clash-verge/1.0.0"})
+            resp.raise_for_status()
+            raw = resp.text
+    except Exception:
+        pass
+
+    # Try via proxy if direct failed
+    if raw is None:
+        try:
+            async with httpx.AsyncClient(timeout=30, follow_redirects=True, proxy="http://127.0.0.1:7890") as client:
+                resp = await client.get(url, headers={"User-Agent": "clash-verge/1.0.0"})
+                resp.raise_for_status()
+                raw = resp.text
+        except Exception:
+            pass
+
+    if raw is None:
+        sub["status"] = "error"
+        save_json_file(SUBSCRIPTIONS_FILE, data)
+        return
+
+    # Parse YAML or base64
+    content = raw.strip()
+    try:
+        cfg = yaml.safe_load(content)
+        proxies = cfg.get("proxies", []) or []
+        node_count = len(proxies)
+    except Exception:
+        try:
+            decoded = _base64.b64decode(content).decode("utf-8")
+            cfg = yaml.safe_load(decoded)
+            proxies = cfg.get("proxies", []) or []
+            node_count = len(proxies)
+            content = decoded
+        except Exception:
+            sub["status"] = "error"
+            save_json_file(SUBSCRIPTIONS_FILE, data)
+            return
+
+    # Save to sub file
+    sub_file = CONFIG_DIR / f"sub_{sub_id}.yaml"
+    sub_file.write_text(content, encoding="utf-8")
+
+    # Update subscription metadata
+    sub["last_updated"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+    sub["node_count"] = node_count
+    sub["status"] = "ok" if node_count > 0 else "error"
+    save_json_file(SUBSCRIPTIONS_FILE, data)
+
+    # Re-apply to mihomo if this is the active subscription
+    if sub_id == data.get("active_subscription"):
+        await _apply_sub_to_mihomo(sub_id)
+
+
+# Start the scheduler as a background task
+_scheduler_task: asyncio.Task | None = None
+
+# Track subscriptions currently being updated to prevent duplicate triggers
+_updating_subs: set[str] = set()
+
+
+@app.on_event("startup")
+async def start_scheduler():
+    global _scheduler_task
+    _scheduler_task = asyncio.create_task(_auto_update_scheduler())
+    logger.info("[STARTUP] Subscription auto-update scheduler started")
+
+
 @app.middleware("http")
 async def log_all_requests(request: Request, call_next):
     """Log every incoming request and its response status."""
@@ -227,14 +372,14 @@ class SubscriptionCreate(BaseModel):
     name: str
     url: str
     auto_update: bool = False
-    update_interval: int = 3600  # seconds
+    update_interval: int = 60  # minutes
 
 
 class SubscriptionUpdate(BaseModel):
     name: str | None = None
     url: str | None = None
     auto_update: bool | None = None
-    update_interval: int | None = None
+    update_interval: int | None = None  # minutes
 
 
 class RuleItem(BaseModel):
@@ -885,6 +1030,26 @@ async def _apply_sub_to_mihomo(sub_id: str):
             raise HTTPException(status_code=400, detail="订阅内容不是有效的 YAML 或 base64 格式")
 
     cfg_path = CONFIG_DIR / "config.yaml"
+
+    # Apply settings from settings.json to subscription config
+    local = load_json_file(SETTINGS_FILE, {})
+    sub_cfg = yaml.safe_load(content_to_write)
+    if sub_cfg is None:
+        sub_cfg = {}
+    sub_cfg["allow-lan"] = local.get("allow_lan", True)
+    sub_cfg["ipv6"] = local.get("ipv6", False)
+    sub_cfg["mode"] = local.get("mode", "rule")
+    sub_cfg["log-level"] = local.get("log_level", "info")
+    if local.get("proxy_mode") == "mixed":
+        sub_cfg["mixed-port"] = local.get("mixed_port", 7890)
+        sub_cfg.pop("http-port", None)
+        sub_cfg.pop("socks-port", None)
+    else:
+        sub_cfg["http-port"] = local.get("http_port", 7890)
+        sub_cfg["socks-port"] = local.get("socks_port", 7891)
+        sub_cfg.pop("mixed-port", None)
+
+    content_to_write = yaml.dump(sub_cfg, allow_unicode=True, sort_keys=False)
     cfg_path.write_text(content_to_write, encoding="utf-8")
     logger.info(f"[_APPLY] Written {len(content_to_write)} chars to {cfg_path}")
 
@@ -954,25 +1119,34 @@ async def update_settings(body: SettingsUpdate):
     if body.clash_api_base is not None:
         local["clash_api_base"] = body.clash_api_base
     if body.proxy_mode is not None:
+        local["proxy_mode"] = body.proxy_mode
         if body.proxy_mode == "mixed":
             # Clear separated ports, set mixed port
-            patch["mixed-port"] = body.mixed_port if body.mixed_port else 7890
+            local["mixed_port"] = body.mixed_port if body.mixed_port else 7890
+            patch["mixed-port"] = local["mixed_port"]
             patch.pop("http-port", None)
             patch.pop("socks-port", None)
         elif body.proxy_mode == "separated":
             # Clear mixed port, set separated ports
+            local["http_port"] = body.http_port if body.http_port else 7890
+            local["socks_port"] = body.socks_port if body.socks_port else 7891
             patch.pop("mixed-port", None)
-            patch["http-port"] = body.http_port if body.http_port else 7890
-            patch["socks-port"] = body.socks_port if body.socks_port else 7891
+            patch["http-port"] = local["http_port"]
+            patch["socks-port"] = local["socks_port"]
     elif body.mixed_port is not None:
+        local["mixed_port"] = body.mixed_port
         patch["mixed-port"] = body.mixed_port
     if body.allow_lan is not None:
+        local["allow_lan"] = body.allow_lan
         patch["allow-lan"] = body.allow_lan
     if body.log_level is not None:
+        local["log_level"] = body.log_level
         patch["log-level"] = body.log_level
     if body.mode is not None:
+        local["mode"] = body.mode
         patch["mode"] = body.mode
     if body.ipv6 is not None:
+        local["ipv6"] = body.ipv6
         patch["ipv6"] = body.ipv6
 
     save_json_file(SETTINGS_FILE, local)
@@ -982,6 +1156,19 @@ async def update_settings(body: SettingsUpdate):
             await clash_patch("/configs", patch)
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Failed to update Clash config: {e}")
+
+    # Re-apply the active subscription so config.yaml reflects the new settings
+    subs_data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": [], "active_subscription": None})
+    active_sub_id = subs_data.get("active_subscription")
+    if active_sub_id:
+        sub_file = CONFIG_DIR / f"sub_{active_sub_id}.yaml"
+        if sub_file.exists():
+            try:
+                await _apply_sub_to_mihomo(active_sub_id)
+                logger.info(f"[UPDATE_SETTINGS] Re-applied active subscription {active_sub_id} to config.yaml")
+            except HTTPException:
+                # Non-fatal: settings already persisted, just log
+                logger.warning(f"[UPDATE_SETTINGS] Failed to re-apply subscription: {active_sub_id}")
 
     return {"success": True}
 
