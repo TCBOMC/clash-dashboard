@@ -792,7 +792,7 @@ async function testAllDelay(){
   const uniqueNodes=[...new Set(nodeEls.map(el=>el.dataset.node).filter(Boolean))];
   await _speedTestNodes(uniqueNodes,'全量');
 }
-}
+
 
 async function loadConnections(){
   try{
