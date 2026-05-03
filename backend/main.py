@@ -75,6 +75,14 @@ else:
 SUBSCRIPTIONS_FILE = CONFIG_DIR / "subscriptions.json"
 SETTINGS_FILE = CONFIG_DIR / "settings.json"
 
+# Override CLASH_API_BASE from settings.json if the UI has set a custom value
+try:
+    _s = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+    if "clash_api_base" in _s:
+        CLASH_API_BASE = _s["clash_api_base"]
+except Exception:
+    pass
+
 # ── Startup banner ────────────────────────────────────────────────────────────
 logger.info("=" * 60)
 logger.info("Clash Dashboard Backend starting")
@@ -1047,6 +1055,10 @@ async def _apply_sub_to_mihomo(sub_id: str):
     sub_cfg["ipv6"] = local.get("ipv6", False)
     sub_cfg["mode"] = local.get("mode", "rule")
     sub_cfg["log-level"] = local.get("log_level", "info")
+    # Force external-controller to match the GUI-configured Clash API address
+    _api_base = local.get("clash_api_base", CLASH_API_BASE)
+    _api_host = _api_base.replace("http://", "").replace("https://", "").rstrip("/")
+    sub_cfg["external-controller"] = _api_host
     if local.get("proxy_mode") == "mixed":
         sub_cfg["mixed-port"] = local.get("mixed_port", 7890)
         sub_cfg.pop("http-port", None)
@@ -1067,6 +1079,22 @@ async def _apply_sub_to_mihomo(sub_id: str):
     except Exception as restart_err:
         logger.error(f"[_APPLY] mihomo restart failed: {restart_err}")
         raise HTTPException(status_code=502, detail=f"重启 mihomo 失败: {restart_err}")
+
+    # Wait for mihomo REST API to be ready (up to 10s)
+    # Always use the UI-configured address, not the module-level constant
+    _api_base = local.get("clash_api_base", CLASH_API_BASE)
+    logger.info(f"[_APPLY] Waiting for mihomo API at {_api_base} to be ready ...")
+    for i in range(20):
+        await asyncio.sleep(0.5)
+        try:
+            r = await get_client().get(f"{_api_base}/version", headers=clash_headers(), timeout=1)
+            if r.status_code == 200:
+                logger.info(f"[_APPLY] mihomo API ready after ~{(i + 1) * 0.5:.1f}s")
+                break
+        except Exception:
+            continue
+    else:
+        raise HTTPException(status_code=503, detail="mihomo REST API 未在 10 秒内就绪，请检查 mihomo 日志")
 
 
 @app.post("/api/subscriptions/{sub_id}/activate")
@@ -1125,6 +1153,8 @@ async def update_settings(body: SettingsUpdate):
 
     if body.clash_api_base is not None:
         local["clash_api_base"] = body.clash_api_base
+        global CLASH_API_BASE
+        CLASH_API_BASE = body.clash_api_base
     if body.proxy_mode is not None:
         local["proxy_mode"] = body.proxy_mode
         if body.proxy_mode == "mixed":
