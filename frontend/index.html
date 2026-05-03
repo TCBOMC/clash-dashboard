@@ -106,8 +106,8 @@ canvas#trafficChart{width:100%;height:120px}
 .proxy-node{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer;transition:all .15s;position:relative}
 .proxy-node:hover{border-color:var(--accent);background:var(--accent-dim)}
 .proxy-node:hover .node-speed-btn{opacity:1}
-.proxy-node.selected{border-color:var(--accent);background:var(--accent-dim)}
-.proxy-node.selected::after{content:'✓';position:absolute;top:6px;right:8px;color:var(--accent-light);font-size:12px;font-weight:700}
+.proxy-node.selected{border-color:var(--green);background:var(--green-dim)}
+.proxy-node.selected::after{content:'✓';position:absolute;top:6px;right:8px;color:var(--green);font-size:12px;font-weight:700}
 .node-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .node-type{font-size:10px;color:var(--text2);margin-top:3px}
 .node-delay{font-size:11px;margin-top:4px}
@@ -248,9 +248,9 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 .nav-item .icon{font-size:14px;width:18px}
 .nav-item .label{font-size:12px}
 .sidebar-status{padding:6px 8px;font-size:11px}
-#conn-search{width:90px!important}
-}
-@media (hover:none){.proxy-node:hover{border-color:var(--surface2)!important;background:var(--surface2)!important}.proxy-node:hover .node-speed-btn{opacity:0!important}
+#conn-search{width:120px!important}
+.proxy-node:hover{border-color:var(--surface2)!important;background:var(--surface2)!important}
+.proxy-node:hover .node-speed-btn{opacity:0!important}
 }
 </style>
 </head>
