@@ -221,6 +221,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 .proxy-group-header .topbar-btn{padding:2px 6px;font-size:10px}
 .proxy-node-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
 .sub-card{flex-direction:column;align-items:flex-start;padding:12px}
+.sub-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .sub-actions{width:100%;justify-content:flex-end;margin-top:8px}
 .settings-row{flex-direction:column;align-items:flex-start;gap:8px}
 .settings-row-inline{display:flex;align-items:center;flex-direction:row!important}
@@ -993,7 +994,7 @@ function renderSubscriptions(activeId){
       return;
     }
     if(empty) empty.style.display='none';
-    list.innerHTML=subsData.map(s=>`<div class="sub-card ${s.id===activeId?'active-sub':''}" id="subcard-${s.id}" onclick="activateSubByClick('${s.id}','${activeId||''}')"><div style="font-size:28px">📦</div><div class="sub-info"><div class="flex items-center gap-8"><div class="sub-name">${s.name}</div>${s.id===activeId?'<span class="badge badge-active">已激活</span>':''}<span class="badge badge-${s.status||'pending'}">${{ok:'正常',error:'错误',pending:'待更新'}[s.status]||s.status}</span></div><div class="sub-url">${s.url||'(无链接)'}</div><div class="sub-meta"><span class="sub-tag">🕐 ${s.last_updated?s.last_updated.replace('T',' '):'从未更新'}</span><span class="sub-tag">📡 ${s.node_count} 个节点</span>${s.auto_update?`<span class="sub-tag">🔄 自动更新 ${s.update_interval}分钟</span>`:''}</div></div><div class="sub-actions" onclick="event.stopPropagation()"><button class="btn btn-ghost" onclick="openEditSub('${s.id}')">修改</button><button class="btn btn-ghost" onclick="updateSub('${s.id}')">更新</button><button class="btn btn-danger" onclick="deleteSub('${s.id}')">删除</button></div></div>`).join('');
+    list.innerHTML=subsData.map(s=>`<div class="sub-card ${s.id===activeId?'active-sub':''}" id="subcard-${s.id}" onclick="activateSubByClick('${s.id}','${activeId||''}')"><div style="font-size:28px">📦</div><div class="sub-info"><div class="flex items-center gap-8"><div class="sub-name">${s.name}</div>${s.id===activeId?'<span class="badge badge-active">已激活</span>':''}<span class="badge badge-${s.status||'pending'}">${{ok:'正常',error:'错误',pending:'待更新'}[s.status]||s.status}</span></div><div class="sub-url">${s.url||'(无链接)'}</div><div class="sub-meta"><span class="sub-tag">🕐 ${s.last_updated?s.last_updated.replace('T',' '):'从未更新'}</span><span class="sub-tag">📡 ${s.node_count} 个节点</span>${s.auto_update?`<span class="sub-tag" style="flex-basis:100%;margin-top:2px">🔄 自动更新 ${s.update_interval}分钟</span>`:''}</div></div><div class="sub-actions" onclick="event.stopPropagation()"><button class="btn btn-ghost" onclick="openEditSub('${s.id}')">修改</button><button class="btn btn-ghost" onclick="updateSub('${s.id}')">更新</button><button class="btn btn-danger" onclick="deleteSub('${s.id}')">删除</button></div></div>`).join('');
   } catch(e) {
     console.error('[renderSubscriptions ERROR]', e.message, e.stack, 'subsData=', JSON.stringify(subsData).slice(0,500));
     toast('渲染订阅列表失败: '+e.message, 'error');
