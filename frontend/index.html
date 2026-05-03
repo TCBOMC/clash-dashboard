@@ -219,7 +219,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
       <div class="nav-section">
         <div class="nav-section-title">主菜单</div>
         <div class="nav-item" data-page="overview" onclick="navigate('overview')"><span class="icon">🏠</span><span class="label">概览</span></div>
-        <div class="nav-item" data-page="proxies" onclick="navigate('proxies')"><span class="icon">🌐</span><span class="label">代理节点</span></div>
+        <div class="nav-item" data-page="proxies" onclick="navigate('proxies')"><span class="icon">🌐</span><span class="label">节点</span></div>
         <div class="nav-item" data-page="connections" onclick="navigate('connections')"><span class="icon">🔗</span><span class="label">连接</span><span class="nav-badge" id="conn-badge">0</span></div>
         <div class="nav-item" data-page="rules" onclick="navigate('rules')"><span class="icon">📋</span><span class="label">规则</span></div>
         <div class="nav-item" data-page="logs" onclick="navigate('logs')"><span class="icon">📄</span><span class="label">日志</span></div>
@@ -620,7 +620,7 @@ function navigate(page){
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
   document.getElementById(`page-${page}`)?.classList.add('active');
   currentPage=page;
-  const titles={overview:'概览',proxies:'代理节点',connections:'连接',rules:'规则',logs:'日志',subscriptions:'订阅管理',rulesets:'规则配置',settings:'设置'};
+  const titles={overview:'概览',proxies:'节点',connections:'连接',rules:'规则',logs:'日志',subscriptions:'订阅管理',rulesets:'规则配置',settings:'设置'};
   document.getElementById('page-title').textContent=titles[page]||page;
   const acts=document.getElementById('topbar-actions');
   acts.innerHTML='';
