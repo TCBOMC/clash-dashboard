@@ -34,7 +34,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 #sidebar.collapsed .sidebar-footer{padding:12px}
 #sidebar.collapsed .sidebar-status{justify-content:center}
 #sidebar.collapsed .nav-badge{margin:0;position:absolute;top:2px;right:2px;font-size:8px;padding:1px 4px}
-.sidebar-nav{flex:1;padding:12px 8px;overflow-y:auto}
+.sidebar-nav{flex:1;padding:12px 0;overflow-y:auto}
+.sidebar-nav .nav-section{padding:0 8px}
 .nav-section{margin-bottom:4px}
 .nav-section-title{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:6px 10px 4px;white-space:nowrap}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);transition:all .15s;margin-bottom:2px}
@@ -226,6 +227,26 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 .settings-control{width:100%}
 .settings-control input,.settings-control select{width:100%}
 .settings-row-inline .settings-control{width:auto;flex-shrink:0}
+#sidebar{width:120px}
+#sidebar.collapsed{width:48px}
+#sidebar.collapsed .sidebar-logo{padding:20px 8px 16px;justify-content:flex-start;height:52px;box-sizing:border-box}
+.sidebar-nav{white-space:normal!important}
+.sidebar-nav .nav-section{display:block!important}
+#sidebar.collapsed .nav-item{justify-content:center;padding:9px 4px}
+#sidebar.collapsed .sidebar-footer{padding:8px 4px}
+#sidebar.collapsed .sidebar-status{justify-content:center;padding:6px 4px}
+.sidebar-logo{display:flex;align-items:center;gap:10px;padding:20px 10px 16px;height:52px;box-sizing:border-box;border-bottom:1px solid var(--border);position:relative}
+.sidebar-collapse-btn{position:absolute;left:10px;top:12px}
+.logo-text-wrap{padding-left:38px;flex:1;min-width:0}
+.sidebar-logo .logo-icon{width:28px;height:28px;font-size:14px}
+.sidebar-logo .logo-text{font-size:14px}
+.sidebar-logo .logo-sub{font-size:10px}
+.sidebar-collapse-btn{width:28px;height:28px;font-size:14px}
+.nav-section-title{padding:4px 6px 2px;font-size:9px}
+.nav-item{padding:9px 8px;gap:8px}
+.nav-item .icon{font-size:14px;width:18px}
+.nav-item .label{font-size:12px}
+.sidebar-status{padding:6px 8px;font-size:11px}
 }
 </style>
 </head>
@@ -238,7 +259,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
     </div>
     <nav class="sidebar-nav">
       <div class="nav-section">
-        <div class="nav-section-title">主菜单</div>
+        <div class="nav-section-title">菜单</div>
         <div class="nav-item" data-page="overview" onclick="navigate('overview')"><span class="icon">🏠</span><span class="label">概览</span></div>
         <div class="nav-item" data-page="proxies" onclick="navigate('proxies')"><span class="icon">🌐</span><span class="label">节点</span></div>
         <div class="nav-item" data-page="connections" onclick="navigate('connections')"><span class="icon">🔗</span><span class="label">连接</span><span class="nav-badge" id="conn-badge">0</span></div>
@@ -293,9 +314,9 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
           <div class="card-header"><div class="card-title">代理模式</div></div>
           <div class="card-body">
             <div class="mode-selector">
-              <button class="mode-btn" id="overview-mode-rule" onclick="setMode('rule')">规则模式</button>
-              <button class="mode-btn" id="overview-mode-global" onclick="setMode('global')">全局模式</button>
-              <button class="mode-btn" id="overview-mode-direct" onclick="setMode('direct')">直连模式</button>
+              <button class="mode-btn" id="overview-mode-rule" onclick="setMode('rule')">规则</button>
+              <button class="mode-btn" id="overview-mode-global" onclick="setMode('global')">全局</button>
+              <button class="mode-btn" id="overview-mode-direct" onclick="setMode('direct')">直连</button>
             </div>
           </div>
         </div>
