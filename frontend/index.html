@@ -105,6 +105,7 @@ canvas#trafficChart{width:100%;height:120px}
 .proxy-node-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;padding:12px}
 .proxy-node{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer;transition:all .15s;position:relative}
 .proxy-node:hover{border-color:var(--accent);background:var(--accent-dim)}
+.proxy-node:hover .node-speed-btn{opacity:1}
 .proxy-node.selected{border-color:var(--accent);background:var(--accent-dim)}
 .proxy-node.selected::after{content:'✓';position:absolute;top:6px;right:8px;color:var(--accent-light);font-size:12px;font-weight:700}
 .node-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -113,7 +114,6 @@ canvas#trafficChart{width:100%;height:120px}
 .node-delay.fast{color:var(--green)}.node-delay.medium{color:var(--yellow)}.node-delay.slow{color:var(--red)}.node-delay.timeout{color:var(--text3)}
 
 .node-speed-btn{position:absolute;bottom:8px;right:8px;background:none;border:none;cursor:pointer;font-size:12px;opacity:0;transition:opacity .15s;padding:2px 4px;color:var(--accent-light);line-height:1}
-.proxy-node:hover .node-speed-btn{opacity:1}
 .proxy-node.selected .node-speed-btn{color:var(--accent-light)}
 .sub-list{display:flex;flex-direction:column;gap:12px}
 .sub-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:16px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:border-color .15s;overflow:hidden}
@@ -248,7 +248,9 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 .nav-item .icon{font-size:14px;width:18px}
 .nav-item .label{font-size:12px}
 .sidebar-status{padding:6px 8px;font-size:11px}
-#conn-search{width:120px!important}
+#conn-search{width:90px!important}
+}
+@media (hover:none){.proxy-node:hover{border-color:var(--surface2)!important;background:var(--surface2)!important}.proxy-node:hover .node-speed-btn{opacity:0!important}
 }
 </style>
 </head>
