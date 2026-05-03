@@ -453,7 +453,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
       </div>
       <div class="form-row" id="sub-interval-row" style="display:none">
         <div class="form-label">自动更新间隔（分钟）</div>
-        <input type="number" id="sub-form-interval" value="60" min="5" />
+        <input type="number" id="sub-form-interval" value="1440" min="5" />
       </div>
     </div>
     <div class="modal-footer">
@@ -482,7 +482,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
       </div>
       <div class="form-row" id="edit-interval-row">
         <div class="form-label">自动更新间隔（分钟）</div>
-        <input type="number" id="edit-sub-interval" value="60" min="5" />
+        <input type="number" id="edit-sub-interval" value="1440" min="5" />
       </div>
       <div class="form-row"><div class="form-label">手动更新配置文件</div>
         <div style="display:flex;gap:8px;align-items:center">
@@ -1091,7 +1091,7 @@ function openEditSub(id){
   document.getElementById('edit-sub-id').value=id;
   document.getElementById('edit-sub-name').value=sub.name||'';
   document.getElementById('edit-sub-url').value=sub.url||'';
-  document.getElementById('edit-sub-interval').value=sub.update_interval||60;
+  document.getElementById('edit-sub-interval').value=sub.update_interval||1440;
   document.getElementById('edit-sub-file').value='';
   document.getElementById('edit-sub-file-status').textContent='';
   // Set auto_update toggle state
