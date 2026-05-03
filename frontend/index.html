@@ -115,10 +115,10 @@ canvas#trafficChart{width:100%;height:120px}
 .proxy-node:hover .node-speed-btn{opacity:1}
 .proxy-node.selected .node-speed-btn{color:var(--accent-light)}
 .sub-list{display:flex;flex-direction:column;gap:12px}
-.sub-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:16px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:border-color .15s}
+.sub-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:16px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:border-color .15s;overflow:hidden}
 .sub-card:hover{border-color:var(--accent)}
 .sub-card.active-sub{border-color:var(--green)}
-.sub-info{flex:1;min-width:0}
+.sub-info{flex:1;min-width:0;overflow:hidden}
 .sub-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sub-url{font-size:11px;color:var(--text2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sub-meta{display:flex;gap:16px;margin-top:8px}
@@ -163,7 +163,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 .settings-section{margin-bottom:24px}
 .settings-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
 .settings-row{display:flex;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);gap:16px}
-.settings-row:last-child{border-bottom:none}
+. settings-row:last-child{border-bottom:none}
 .settings-label{flex:1}
 .settings-label .title{font-size:13px;color:var(--text)}
 .settings-label .desc{font-size:11px;color:var(--text2);margin-top:2px}
@@ -206,6 +206,27 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 .page-btn:hover{background:var(--surface3);color:var(--text)}
 .page-btn.active{background:var(--accent);color:#fff}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@media(max-width:768px){
+.stats-grid{grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px}
+.stat-card{padding:10px;gap:5px}
+.stat-label{font-size:7px}
+.stat-value{font-size:15px}
+.stat-icon{font-size:13px;margin-bottom:2px}
+.node-speed-btn{opacity:1}
+.topbar-btn{padding:4px 10px;font-size:11px}
+#topbar-actions{gap:6px}
+#topbar-actions .topbar-btn{padding:3px 5px!important;font-size:10px!important}
+#topbar-actions .mode-btn{padding:2px 5px!important;font-size:10px!important}
+.proxy-group-header .topbar-btn{padding:2px 6px;font-size:10px}
+.proxy-node-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
+.sub-card{flex-direction:column;align-items:flex-start;padding:12px}
+.sub-actions{width:100%;justify-content:flex-end;margin-top:8px}
+.settings-row{flex-direction:column;align-items:flex-start;gap:8px}
+.settings-row-inline{display:flex;align-items:center;flex-direction:row!important}
+.settings-control{width:100%}
+.settings-control input,.settings-control select{width:100%}
+.settings-row-inline .settings-control{width:auto;flex-shrink:0}
+}
 </style>
 </head>
 <body>
@@ -395,11 +416,11 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
               <div class="settings-control"><input type="number" id="s-socks-port" value="7891" min="1" max="65535" /></div>
             </div>
           </div>
-          <div class="settings-row">
+          <div class="settings-row settings-row-inline">
             <div class="settings-label"><div class="title">允许局域网连接</div><div class="desc">允许局域网内其他设备使用代理</div></div>
             <div class="settings-control"><div class="toggle" id="s-allow-lan" onclick="toggleSetting('s-allow-lan')"></div></div>
           </div>
-          <div class="settings-row">
+          <div class="settings-row settings-row-inline">
             <div class="settings-label"><div class="title">IPv6</div><div class="desc">启用 IPv6 解析</div></div>
             <div class="settings-control"><div class="toggle" id="s-ipv6" onclick="toggleSetting('s-ipv6')"></div></div>
           </div>
@@ -769,7 +790,7 @@ function renderProxies(){
     const members=gdata.all||[];
     const current=gdata.now||'';
     const typeLabel={Selector:'手动选择',URLTest:'自动测速',Fallback:'故障转移',LoadBalance:'负载均衡'}[gdata.type]||gdata.type;
-    card.innerHTML=`<div class="proxy-group-header" onclick="toggleGroup(this)"><span class="chevron">▼</span><div class="proxy-group-name">${gname}</div><span class="proxy-group-type">${typeLabel}</span><div class="text-sm text-muted">当前: <b style="color:var(--accent-light)">${current||'—'}</b></div><button class="topbar-btn" style="padding:3px 10px;font-size:12px;margin-left:auto" onclick="event.stopPropagation();testGroupDelay('${gname.replace(/'/g,"\\'")}')">⚡ 测速</button></div><div class="proxy-node-grid" id="group-${gname.replace(/\s/g,'_')}"></div>`;
+    card.innerHTML=`<div class="proxy-group-header" onclick="toggleGroup(this)"><span class="chevron">▼</span><div class="proxy-group-name">${gname}</div><span class="proxy-group-type">${typeLabel}</span><div class="text-sm text-muted">当前: <b style="color:var(--accent-light)">${current||'—'}</b></div><button class="topbar-btn" style="margin-left:auto" onclick="event.stopPropagation();testGroupDelay('${gname.replace(/'/g,"\\'")}')">⚡ 测速</button></div><div class="proxy-node-grid" id="group-${gname.replace(/\s/g,'_')}"></div>`;
     container.appendChild(card);
     const grid=card.querySelector('.proxy-node-grid');
     members.forEach(nodeName=>{
