@@ -1095,6 +1095,9 @@ async def _apply_sub_to_mihomo(sub_id: str):
     else:
         sub_cfg.pop("secret", None)
 
+    # Prevent subscription from injecting its own web UI path
+    sub_cfg.pop("external-ui", None)
+
     content_to_write = yaml.dump(sub_cfg, allow_unicode=True, sort_keys=False)
     cfg_path.write_text(content_to_write, encoding="utf-8")
     logger.info(f"[_APPLY] Written {len(content_to_write)} chars to {cfg_path}")
