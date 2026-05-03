@@ -122,8 +122,8 @@ canvas#trafficChart{width:100%;height:120px}
 .sub-info{flex:1;min-width:0;overflow:hidden}
 .sub-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sub-url{font-size:11px;color:var(--text2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sub-meta{display:flex;gap:16px;margin-top:8px}
-.sub-tag{font-size:11px;color:var(--text2);display:flex;align-items:center;gap:4px}
+.sub-meta{display:flex;gap:16px;margin-top:8px;flex-wrap:wrap}
+.sub-tag{font-size:11px;color:var(--text2);display:flex;align-items:center;gap:4px;white-space:nowrap}
 .sub-actions{display:flex;gap:8px;flex-shrink:0}
 .btn{padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;transition:all .15s}
 .btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
@@ -996,7 +996,7 @@ function renderSubscriptions(activeId){
       return;
     }
     if(empty) empty.style.display='none';
-    list.innerHTML=subsData.map(s=>`<div class="sub-card ${s.id===activeId?'active-sub':''}" id="subcard-${s.id}" onclick="activateSubByClick('${s.id}','${activeId||''}')"><div style="font-size:28px">📦</div><div class="sub-info"><div class="flex items-center gap-8"><div class="sub-name">${s.name}</div>${s.id===activeId?'<span class="badge badge-active">已激活</span>':''}<span class="badge badge-${s.status||'pending'}">${{ok:'正常',error:'错误',pending:'待更新'}[s.status]||s.status}</span></div><div class="sub-url">${s.url||'(无链接)'}</div><div class="sub-meta"><span class="sub-tag">🕐 ${s.last_updated?s.last_updated.replace('T',' '):'从未更新'}</span><span class="sub-tag">📡 ${s.node_count} 个节点</span></div>${s.auto_update?`<div style="margin-top:4px"><span class="sub-tag" style="white-space:nowrap">🔄 自动更新 ${s.update_interval}分钟</span></div>`:''}</div><div class="sub-actions" onclick="event.stopPropagation()"><button class="btn btn-ghost" onclick="openEditSub('${s.id}')">修改</button><button class="btn btn-ghost" onclick="updateSub('${s.id}')">更新</button><button class="btn btn-danger" onclick="deleteSub('${s.id}')">删除</button></div></div>`).join('');
+    list.innerHTML=subsData.map(s=>`<div class="sub-card ${s.id===activeId?'active-sub':''}" id="subcard-${s.id}" onclick="activateSubByClick('${s.id}','${activeId||''}')"><div style="font-size:28px">📦</div><div class="sub-info"><div class="flex items-center gap-8"><div class="sub-name">${s.name}</div>${s.id===activeId?'<span class="badge badge-active">已激活</span>':''}<span class="badge badge-${s.status||'pending'}">${{ok:'正常',error:'错误',pending:'待更新'}[s.status]||s.status}</span></div><div class="sub-url">${s.url||'(无链接)'}</div><div class="sub-meta"><span class="sub-tag">🕐 ${s.last_updated?s.last_updated.replace('T',' '):'从未更新'}</span><span class="sub-tag">📡 ${s.node_count} 个节点</span>${s.auto_update?`<span class="sub-tag">🔄 自动更新 ${s.update_interval}分钟</span>`:''}</div></div><div class="sub-actions" onclick="event.stopPropagation()"><button class="btn btn-ghost" onclick="openEditSub('${s.id}')">修改</button><button class="btn btn-ghost" onclick="updateSub('${s.id}')">更新</button><button class="btn btn-danger" onclick="deleteSub('${s.id}')">删除</button></div></div>`).join('');
   } catch(e) {
     console.error('[renderSubscriptions ERROR]', e.message, e.stack, 'subsData=', JSON.stringify(subsData).slice(0,500));
     toast('渲染订阅列表失败: '+e.message, 'error');
