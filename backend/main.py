@@ -18,6 +18,22 @@ import aiofiles
 import httpx
 import yaml
 import uvicorn
+
+
+# Custom string class so yaml.dump always outputs single-quoted values.
+# Prevents YAML from misinterpreting "127.0.0.1:9090" as a key-value mapping.
+class _ForceQuotedStr(str):
+    pass
+
+
+def _force_quoted_str(s: str) -> _ForceQuotedStr:
+    return _ForceQuotedStr(s)
+
+
+yaml.add_representer(
+    _ForceQuotedStr,
+    lambda dumper, data: dumper.represent_scalar("tag:yaml.org,2002:str", data, style="'"),
+)
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -1058,7 +1074,9 @@ async def _apply_sub_to_mihomo(sub_id: str):
     # Force external-controller to match the GUI-configured Clash API address
     _api_base = local.get("clash_api_base", CLASH_API_BASE)
     _api_host = _api_base.replace("http://", "").replace("https://", "").rstrip("/")
-    sub_cfg["external-controller"] = _api_host
+    # Use _force_quoted_str so the value is always written with quotes
+    # e.g. external-controller: '127.0.0.1:9090'  (avoids YAML treating : as a map separator)
+    sub_cfg["external-controller"] = _force_quoted_str(_api_host)
     if local.get("proxy_mode") == "mixed":
         sub_cfg["mixed-port"] = local.get("mixed_port", 7890)
         sub_cfg.pop("http-port", None)
