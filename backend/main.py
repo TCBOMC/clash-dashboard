@@ -91,11 +91,13 @@ else:
 SUBSCRIPTIONS_FILE = CONFIG_DIR / "subscriptions.json"
 SETTINGS_FILE = CONFIG_DIR / "settings.json"
 
-# Override CLASH_API_BASE from settings.json if the UI has set a custom value
+# Override CLASH_API_BASE and CLASH_SECRET from settings.json (UI settings take priority)
 try:
     _s = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
     if "clash_api_base" in _s:
         CLASH_API_BASE = _s["clash_api_base"]
+    if "clash_secret" in _s and _s["clash_secret"]:
+        CLASH_SECRET = _s["clash_secret"]
 except Exception:
     pass
 
@@ -1086,6 +1088,13 @@ async def _apply_sub_to_mihomo(sub_id: str):
         sub_cfg["socks-port"] = local.get("socks_port", 7891)
         sub_cfg.pop("mixed-port", None)
 
+    # secret: only write if the user explicitly set one (UI value > env var)
+    _secret = local.get("clash_secret", "") or CLASH_SECRET
+    if _secret:
+        sub_cfg["secret"] = _secret
+    else:
+        sub_cfg.pop("secret", None)
+
     content_to_write = yaml.dump(sub_cfg, allow_unicode=True, sort_keys=False)
     cfg_path.write_text(content_to_write, encoding="utf-8")
     logger.info(f"[_APPLY] Written {len(content_to_write)} chars to {cfg_path}")
@@ -1173,6 +1182,15 @@ async def update_settings(body: SettingsUpdate):
         local["clash_api_base"] = body.clash_api_base
         global CLASH_API_BASE
         CLASH_API_BASE = body.clash_api_base
+    # clash_secret: None = don't change; "" = remove; non-empty = set
+    if body.clash_secret is not None:
+        global CLASH_SECRET
+        if body.clash_secret:
+            local["clash_secret"] = body.clash_secret
+            CLASH_SECRET = body.clash_secret
+        else:
+            local.pop("clash_secret", None)
+            CLASH_SECRET = ""
     if body.proxy_mode is not None:
         local["proxy_mode"] = body.proxy_mode
         if body.proxy_mode == "mixed":
