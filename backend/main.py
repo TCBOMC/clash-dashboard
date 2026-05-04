@@ -479,10 +479,20 @@ async def overview():
     proxy_count = len(proxies_data.get("proxies", {}))
     active_connections = len(connections_data.get("connections") or [])
 
+    # 读取本地配置，获取端口模式和相关端口
+    local_settings = load_json_file(SETTINGS_FILE, {})
+    proxy_mode = local_settings.get("proxy_mode", "mixed")
+    mixed_port = local_settings.get("mixed_port", 7890)
+    http_port = local_settings.get("http_port", 7890)
+    socks_port = local_settings.get("socks_port", 7891)
+
     return {
         "version": version_data.get("version", "unknown"),
         "mode": config_data.get("mode", "rule"),
-        "mixed_port": config_data.get("mixed-port", config_data.get("port", 7890)),
+        "proxy_mode": proxy_mode,
+        "mixed_port": mixed_port,
+        "http_port": http_port,
+        "socks_port": socks_port,
         "allow_lan": config_data.get("allow-lan", False),
         "log_level": config_data.get("log-level", "info"),
         "download_total": connections_data.get("downloadTotal", 0),
@@ -1160,15 +1170,13 @@ async def get_settings():
         clash_cfg = await clash_get("/configs")
     except Exception:
         clash_cfg = {}
-    # Determine proxy mode: mixed-port takes precedence, otherwise separated
-    has_mixed = "mixed-port" in clash_cfg or "port" in clash_cfg
     return {
         "clash_api_base": local.get("clash_api_base", CLASH_API_BASE),
         "clash_secret": "****" if CLASH_SECRET else "",
-        "proxy_mode": "mixed" if has_mixed else "separated",
-        "mixed_port": clash_cfg.get("mixed-port", clash_cfg.get("port", 7890)),
-        "http_port": clash_cfg.get("http-port", 7890),
-        "socks_port": clash_cfg.get("socks-port", 7891),
+        "proxy_mode": local.get("proxy_mode", "mixed"),
+        "mixed_port": local.get("mixed_port", 7890),
+        "http_port": local.get("http_port", 7890),
+        "socks_port": local.get("socks_port", 7891),
         "allow_lan": clash_cfg.get("allow-lan", False),
         "log_level": clash_cfg.get("log-level", "info"),
         "mode": clash_cfg.get("mode", "rule"),

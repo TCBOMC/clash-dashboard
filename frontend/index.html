@@ -300,7 +300,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
           <div class="stat-card green"><div class="stat-icon">⬇️</div><div class="stat-label">累计下载</div><div class="stat-value" id="stat-dl">—</div></div>
           <div class="stat-card yellow"><div class="stat-icon">⬆️</div><div class="stat-label">累计上传</div><div class="stat-value" id="stat-ul">—</div></div>
           <div class="stat-card blue"><div class="stat-icon">🔗</div><div class="stat-label">活跃连接</div><div class="stat-value" id="stat-conns">0</div></div>
-          <div class="stat-card purple"><div class="stat-icon">🔌</div><div class="stat-label">混合端口</div><div class="stat-value" id="stat-port">—</div></div>
+          <div class="stat-card purple"><div class="stat-icon">🔌</div><div class="stat-label" id="stat-port-label">混合端口</div><div class="stat-value" id="stat-port">—</div></div>
         </div>
         <div class="traffic-chart-wrap mb-16">
           <div class="chart-header">
@@ -714,7 +714,16 @@ async function loadOverview(){
     document.getElementById('stat-dl').textContent=formatBytes(d.download_total);
     document.getElementById('stat-ul').textContent=formatBytes(d.upload_total);
     document.getElementById('stat-conns').textContent=d.active_connections;
-    document.getElementById('stat-port').textContent=d.mixed_port;
+    // 根据端口模式更新端口显示
+    const portLabel=document.getElementById('stat-port-label');
+    const portValue=document.getElementById('stat-port');
+    if(d.proxy_mode==='separated'){
+      portLabel.textContent='HTTP / SOCKS';
+      portValue.textContent=d.http_port+' / '+d.socks_port;
+    }else{
+      portLabel.textContent='混合端口';
+      portValue.textContent=d.mixed_port;
+    }
     document.getElementById('conn-badge').textContent=d.active_connections;
     ['rule','global','direct'].forEach(m=>document.getElementById(`overview-mode-${m}`)?.classList.remove('active'));
     document.getElementById(`overview-mode-${d.mode}`)?.classList.add('active');
@@ -1360,7 +1369,7 @@ async function saveSettings(){
   };
   const secret=document.getElementById('s-secret').value;
   if(secret)body.clash_secret=secret;
-  try{await apiFetch('/api/settings',{method:'PATCH',body:JSON.stringify(body)});toast('设置已保存','success')}catch(e){toast('保存失败: '+e.message,'error')}
+  try{await apiFetch('/api/settings',{method:'PATCH',body:JSON.stringify(body)});toast('设置已保存','success');loadOverview()}catch(e){toast('保存失败: '+e.message,'error')}
 }
 
 function toggleSetting(id){document.getElementById(id).classList.toggle('on')}
