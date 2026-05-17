@@ -78,11 +78,13 @@ uvicorn_access = logging.getLogger("uvicorn.access")
 uvicorn_access.handlers.clear()
 uvicorn_access.addHandler(logging.FileHandler(_log_file, encoding="utf-8"))
 uvicorn_access.handlers[-1].setFormatter(_uvicorn_fmt)
+uvicorn_access.propagate = False
 
 uvicorn_error = logging.getLogger("uvicorn.error")
 uvicorn_error.handlers.clear()
 uvicorn_error.addHandler(logging.FileHandler(_log_file, encoding="utf-8"))
 uvicorn_error.handlers[-1].setFormatter(_uvicorn_fmt)
+uvicorn_error.propagate = False
 
 logger = _logger  # module-level alias
 
