@@ -79,6 +79,7 @@ uvicorn_access.handlers.clear()
 uvicorn_access.addHandler(logging.FileHandler(_log_file, encoding="utf-8"))
 uvicorn_access.handlers[-1].setFormatter(_uvicorn_fmt)
 uvicorn_access.propagate = False
+uvicorn_access.setLevel(logging.DEBUG)  # 始终 DEBUG，由 handler formatter 过滤
 
 uvicorn_error = logging.getLogger("uvicorn.error")
 uvicorn_error.handlers.clear()
@@ -101,7 +102,9 @@ SETTINGS_FILE = CONFIG_DIR / "settings.json"
 # ---------------------------------------------------------------------------
 
 def _apply_log_level(level_str: str) -> None:
-    """Set backend + uvicorn logger levels from a level string (silent/info/debug/...)."""
+    """Set backend + uvicorn_error logger levels from a level string (silent/info/debug/...).
+    Note: uvicorn_access is always DEBUG; its handler formatter filters by the backend level.
+    """
     _LEVEL_MAP = {
         "silent": logging.CRITICAL,
         "error":  logging.ERROR,
@@ -111,7 +114,8 @@ def _apply_log_level(level_str: str) -> None:
     }
     lvl = _LEVEL_MAP.get(level_str, logging.INFO)
     _logger.setLevel(lvl)
-    uvicorn_access.setLevel(lvl)
+    # uvicorn_access stays at DEBUG; its handler uses the same formatter so
+    # output respects the configured level without the INFO: prefix.
     uvicorn_error.setLevel(lvl)
 
 
@@ -1337,7 +1341,7 @@ if static_dir.exists():
 if __name__ == "__main__":
     port = int(os.getenv("BACKEND_PORT", "8080"))
 
-    # ── Patch uvicorn so every socket it creates gets SO_REUSEADDR ─────────────
+    # ── Patch uvicorn LOGGING_CONFIG so every socket it creates gets SO_REUSEADDR ──
     # On Windows, a port stays in TIME_WAIT for ~2 min after a process exits.
     # Without this, the first bind_socket() call inside config.load() fails
     # with EADDRINUSE (10048) and exits immediately.
@@ -1358,7 +1362,26 @@ if __name__ == "__main__":
         _orig_bs(self)
     uvicorn.Config.bind_socket = _reuse_bind_socket
 
+    # ── Patch uvicorn access formatter to remove INFO: level prefix ──────────
+    # uvicorn's AccessFormatter reads the logger's level and injects %(levelprefix)s
+    # (hardcoded to "INFO"). The only way to remove it is to patch LOGGING_CONFIG
+    # BEFORE Config() is created — dictConfig() inside Config.__init__ recreates
+    # handlers from the patched config, so this persists.
+    import uvicorn.config as _uc
+    _uc.LOGGING_CONFIG["formatters"]["access"]["fmt"] = (
+        "%(client_addr)s - \"%(request_line)s\" %(status_code)s"
+    )
+
     logger.info(f"Starting backend on 0.0.0.0:{port} (SO_REUSEADDR patched)")
     config = uvicorn.Config(app=app, host="0.0.0.0", port=port, log_level="info")
+
+    # uvicorn.Config.__init__ calls dictConfig(LOGGING_CONFIG) which recreates
+    # handlers on uvicorn.access/uvicorn.error AFTER our module-level setup.
+    # Clear the freshly-created uvicorn.access handler so only our
+    # module-level handler (set up above, using the correct formatter) is active.
+    _uvicorn_access2 = logging.getLogger("uvicorn.access")
+    for _h in _uvicorn_access2.handlers[:]:
+        _uvicorn_access2.removeHandler(_h)
+
     uvicorn.Server(config).run()
 
