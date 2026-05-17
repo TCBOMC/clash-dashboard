@@ -71,6 +71,23 @@ _logger.setLevel(logging.DEBUG)
 _logger.addHandler(_file_handler)
 _logger.addHandler(_stream_handler)
 
+# ── Reuse the same formatter for uvicorn loggers ───────────────────────────
+# Without this, uvicorn.access writes "INFO: ..." in its default format to
+# backend.log, creating an inconsistent mix of log line formats.
+_uvicorn_fmt = _file_handler.formatter
+
+uvicorn_access = logging.getLogger("uvicorn.access")
+uvicorn_access.handlers.clear()
+uvicorn_access.addHandler(logging.FileHandler(_log_file, encoding="utf-8"))
+uvicorn_access.handlers[-1].setFormatter(_uvicorn_fmt)
+uvicorn_access.setLevel(logging.INFO)
+
+uvicorn_error = logging.getLogger("uvicorn.error")
+uvicorn_error.handlers.clear()
+uvicorn_error.addHandler(logging.FileHandler(_log_file, encoding="utf-8"))
+uvicorn_error.handlers[-1].setFormatter(_uvicorn_fmt)
+uvicorn_error.setLevel(logging.INFO)
+
 logger = _logger  # module-level alias
 
 # ---------------------------------------------------------------------------
@@ -1307,7 +1324,7 @@ if __name__ == "__main__":
         _orig_bs(self)
     uvicorn.Config.bind_socket = _reuse_bind_socket
 
-    print(f"[main] Starting backend on 0.0.0.0:{port} (SO_REUSEADDR patched)")
+    logger.info(f"Starting backend on 0.0.0.0:{port} (SO_REUSEADDR patched)")
     config = uvicorn.Config(app=app, host="0.0.0.0", port=port, log_level="info")
     uvicorn.Server(config).run()
 
