@@ -67,63 +67,85 @@ _stream_handler.setFormatter(logging.Formatter(
 ))
 
 _logger = logging.getLogger("clash-dashboard")
-_logger.setLevel(logging.DEBUG)
+_logger.setLevel(logging.DEBUG)  # 临时；实际级别在下面 read_settings() 后重设
 _logger.addHandler(_file_handler)
 _logger.addHandler(_stream_handler)
 
 # ── Reuse the same formatter for uvicorn loggers ───────────────────────────
-# Without this, uvicorn.access writes "INFO: ..." in its default format to
-# backend.log, creating an inconsistent mix of log line formats.
 _uvicorn_fmt = _file_handler.formatter
 
 uvicorn_access = logging.getLogger("uvicorn.access")
 uvicorn_access.handlers.clear()
 uvicorn_access.addHandler(logging.FileHandler(_log_file, encoding="utf-8"))
 uvicorn_access.handlers[-1].setFormatter(_uvicorn_fmt)
-uvicorn_access.setLevel(logging.INFO)
 
 uvicorn_error = logging.getLogger("uvicorn.error")
 uvicorn_error.handlers.clear()
 uvicorn_error.addHandler(logging.FileHandler(_log_file, encoding="utf-8"))
 uvicorn_error.handlers[-1].setFormatter(_uvicorn_fmt)
-uvicorn_error.setLevel(logging.INFO)
 
 logger = _logger  # module-level alias
 
 # ---------------------------------------------------------------------------
-# Configuration (must be defined before the startup banner below)
+# ── Resolve paths (needed by _read_settings below) ─────────────────────────
+# ---------------------------------------------------------------------------
+_backend_dir = Path(__file__).resolve().parent          # backend/
+CONFIG_DIR = Path(os.getenv("CONFIG_DIR")) if os.getenv("CONFIG_DIR") else _backend_dir.parent / "clash-config"
+SUBSCRIPTIONS_FILE = CONFIG_DIR / "subscriptions.json"
+SETTINGS_FILE = CONFIG_DIR / "settings.json"
+
+# ---------------------------------------------------------------------------
+# ── Load settings.json BEFORE logger level is finalized ────────────────────
+# ---------------------------------------------------------------------------
+
+def _apply_log_level(level_str: str) -> None:
+    """Set backend + uvicorn logger levels from a level string (silent/info/debug/...)."""
+    _LEVEL_MAP = {
+        "silent": logging.CRITICAL,
+        "error":  logging.ERROR,
+        "warning": logging.WARNING,
+        "info":   logging.INFO,
+        "debug":  logging.DEBUG,
+    }
+    lvl = _LEVEL_MAP.get(level_str, logging.INFO)
+    _logger.setLevel(lvl)
+    uvicorn_access.setLevel(lvl)
+    uvicorn_error.setLevel(lvl)
+
+
+def _read_settings() -> dict:
+    """Load settings.json, apply log_level, then return the full dict."""
+    try:
+        local = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        local = {}
+    # Apply backend log level from settings (mihomo log-level and backend log level share the field)
+    _apply_log_level(local.get("log_level", "info"))
+    return local
+
+
+# Read settings early so log level is set before the startup banner fires
+local_settings = _read_settings()
+
+# ---------------------------------------------------------------------------
+# ── Environment / CLI overrides ────────────────────────────────────────────
 # ---------------------------------------------------------------------------
 # 支持 CLASH_API_URL 或 CLASH_API_BASE 任一环境变量
 CLASH_API_BASE = os.getenv("CLASH_API_URL") or os.getenv("CLASH_API_BASE", "http://127.0.0.1:9090")
 CLASH_SECRET = os.getenv("CLASH_SECRET", "")
-
-# Resolve CONFIG_DIR: use env var, or compute relative to this file's location
-# This ensures the backend finds config files regardless of working directory
-if os.getenv("CONFIG_DIR"):
-    CONFIG_DIR = Path(os.getenv("CONFIG_DIR"))
-else:
-    # Resolve relative to the backend directory (where main.py lives)
-    _backend_dir = Path(__file__).resolve().parent          # backend/
-    CONFIG_DIR = _backend_dir.parent / "clash-config"        # project/clash-config/
-SUBSCRIPTIONS_FILE = CONFIG_DIR / "subscriptions.json"
-SETTINGS_FILE = CONFIG_DIR / "settings.json"
-
-# Override CLASH_API_BASE and CLASH_SECRET from settings.json (UI settings take priority)
-try:
-    _s = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
-    if "clash_api_base" in _s:
-        CLASH_API_BASE = _s["clash_api_base"]
-    if "clash_secret" in _s and _s["clash_secret"]:
-        CLASH_SECRET = _s["clash_secret"]
-except Exception:
-    pass
+# UI settings (stored in settings.json) take priority
+if local_settings.get("clash_api_base"):
+    CLASH_API_BASE = local_settings["clash_api_base"]
+if local_settings.get("clash_secret"):
+    CLASH_SECRET = local_settings["clash_secret"]
 
 # ── Startup banner ────────────────────────────────────────────────────────────
 logger.info("=" * 60)
 logger.info("Clash Dashboard Backend starting")
 logger.info(f"  Python: {_sys.version.split()[0]}")
-logger.info(f"  CONFIG_DIR: {CONFIG_DIR}")
-logger.info(f"  CLASH_API_BASE: {CLASH_API_BASE}")
+    logger.info(f"  CONFIG_DIR: {CONFIG_DIR}")
+    logger.info(f"  backend log-level: {_logger.level} ({logging.getLevelName(_logger.level)})")
+    logger.info(f"  CLASH_API_BASE: {CLASH_API_BASE}")
 logger.info(f"  subscriptions.json: {SUBSCRIPTIONS_FILE}")
 logger.info(f"  subscriptions.json exists: {SUBSCRIPTIONS_FILE.exists()}")
 logger.info(f"  config.yaml: {CONFIG_DIR / 'config.yaml'}")
@@ -327,17 +349,26 @@ def clash_headers() -> dict[str, str]:
     return h
 
 
-async def clash_get(path: str) -> Any:
+async def clash_get(path: str, silent: bool = False) -> Any:
     url = f"{CLASH_API_BASE}{path}"
     client = get_client()
-    logger.debug(f"[→ GET] {url}")
-    resp = await client.get(url, headers=clash_headers())
-    logger.debug(f"[← GET] {url} → {resp.status_code}")
-    resp.raise_for_status()
+    if not silent:
+        logger.debug(f"[→ GET] {url}")
     try:
-        return resp.json()
-    except Exception:
-        return {}
+        resp = await client.get(url, headers=clash_headers())
+        if not silent:
+            logger.debug(f"[← GET] {url} → {resp.status_code}")
+        resp.raise_for_status()
+        try:
+            return resp.json()
+        except Exception:
+            return {}
+    except Exception as e:
+        if path == "/version":
+            logger.warning(f"[clash_get] /version failed: {e}")
+        else:
+            logger.debug(f"[← GET] {url} → {type(e).__name__}: {e}")
+        raise
 
 
 async def clash_put(path: str, data: dict) -> Any:
@@ -1243,6 +1274,7 @@ async def update_settings(body: SettingsUpdate):
     if body.log_level is not None:
         local["log_level"] = body.log_level
         patch["log-level"] = body.log_level
+        _apply_log_level(body.log_level)  # apply to backend logger immediately
     if body.mode is not None:
         local["mode"] = body.mode
         patch["mode"] = body.mode
@@ -1281,7 +1313,7 @@ async def update_settings(body: SettingsUpdate):
 @app.get("/api/health")
 async def health():
     try:
-        data = await clash_get("/version")
+        data = await clash_get("/version", silent=True)
         return {"status": "ok", "clash": data}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
