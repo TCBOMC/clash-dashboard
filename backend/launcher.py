@@ -121,61 +121,6 @@ def _wait_port(host: str, port: int, timeout: float = 20) -> bool:
     return False
 
 
-def _find_pids_by_port_linux(port: int) -> list[int]:
-    """
-    Pure-Python port→PID lookup via /proc/net/tcp* (no external tools needed).
-    Works in any Linux environment including minimal Docker containers.
-    """
-    import glob, struct
-
-    pids: list[int] = []
-    hex_port = f"{port:04X}"
-
-    # Collect all inodes listening on the given port
-    inodes: set[str] = set()
-    for tcp_file in glob.glob("/proc/net/tcp*"):
-        try:
-            with open(tcp_file, "r") as f:
-                for line in f:
-                    parts = line.split()
-                    if len(parts) < 10:
-                        continue
-                    local_addr = parts[1]
-                    state = parts[3]
-                    inode = parts[9]
-                    # state 0A = TCP_LISTEN
-                    if local_addr.endswith(f":{hex_port}") and state == "0A":
-                        inodes.add(inode)
-        except OSError:
-            pass
-
-    if not inodes:
-        return pids
-
-    # Walk /proc/<pid>/fd to match socket inodes
-    for pid_dir in glob.glob("/proc/[0-9]*/fd"):
-        try:
-            pid = int(pid_dir.split("/")[2])
-        except (IndexError, ValueError):
-            continue
-        try:
-            for fd_link in glob.glob(f"{pid_dir}/*"):
-                try:
-                    target = os.readlink(fd_link)
-                    # e.g. "socket:[12345]"
-                    if target.startswith("socket:["):
-                        inode = target[8:-1]
-                        if inode in inodes:
-                            pids.append(pid)
-                            break
-                except OSError:
-                    pass
-        except OSError:
-            pass
-
-    return pids
-
-
 def _kill_port(port: int) -> None:
     """Kill the process holding a given TCP port (Windows + Linux)."""
     try:
@@ -193,20 +138,7 @@ def _kill_port(port: int) -> None:
                         print(f"[launcher] Killed PID {pid} on port {port}")
                         break
         else:
-            pids = _find_pids_by_port_linux(port)
-            if pids:
-                for pid in pids:
-                    try:
-                        os.kill(pid, signal.SIGTERM)
-                        print(f"[launcher] Sent SIGTERM to PID {pid} (port {port})")
-                    except ProcessLookupError:
-                        pass
-            else:
-                # Fallback: try fuser, then ss+kill
-                try:
-                    subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True)
-                except FileNotFoundError:
-                    pass
+            subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True)
     except Exception as e:
         print(f"[launcher] _kill_port({port}) failed: {e}")
 
@@ -270,6 +202,7 @@ def _stop_mihomo() -> None:
     api_port = _detect_api_port(cfg_path)
     if _port_open("127.0.0.1", api_port):
         print(f"[launcher] Stopping mihomo on port {api_port}...")
+        # Find by port using netstat/findstr
         try:
             if IS_WINDOWS:
                 result = subprocess.run(
@@ -284,30 +217,10 @@ def _stop_mihomo() -> None:
                         print(f"[launcher] Killed mihomo PID {pid}")
                         break
             else:
-                pids = _find_pids_by_port_linux(api_port)
-                if pids:
-                    for pid in pids:
-                        try:
-                            os.kill(pid, signal.SIGTERM)
-                            print(f"[launcher] Sent SIGTERM to mihomo PID {pid}")
-                        except ProcessLookupError:
-                            pass
-                    # Wait up to 5 s for mihomo to exit
-                    import time as _t
-                    deadline = _t.monotonic() + 5
-                    while _t.monotonic() < deadline:
-                        if not _port_open("127.0.0.1", api_port):
-                            break
-                        _t.sleep(0.3)
-                else:
-                    # Fallback: try fuser
-                    try:
-                        subprocess.run(
-                            ["fuser", "-k", f"{api_port}/tcp"],
-                            capture_output=True, text=True
-                        )
-                    except FileNotFoundError:
-                        print("[launcher] fuser not found; mihomo may not have been stopped")
+                result = subprocess.run(
+                    ["fuser", "-k", f"{api_port}/tcp"],
+                    capture_output=True, text=True
+                )
         except Exception as e:
             print(f"[launcher] Error stopping mihomo: {e}")
 
@@ -440,10 +353,8 @@ def _build_env(clash_url: str) -> dict:
 def _signal_handler(signum, frame):
     sig = signal.Signals(signum).name
     print(f"\n[launcher] Received {sig}, shutting down...")
-    if _shutdown_event is not None:
-        _shutdown_event.set()
-    # Do NOT call sys.exit() here — let the main loop handle cleanup
-    # so backend.terminate() and cmd_server.shutdown() both run.
+    _stop_mihomo()
+    sys.exit(0)
 
 
 def main():
