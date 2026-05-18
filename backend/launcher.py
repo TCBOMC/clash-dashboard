@@ -353,8 +353,10 @@ def _build_env(clash_url: str) -> dict:
 def _signal_handler(signum, frame):
     sig = signal.Signals(signum).name
     print(f"\n[launcher] Received {sig}, shutting down...")
-    _stop_mihomo()
-    sys.exit(0)
+    if _shutdown_event is not None:
+        _shutdown_event.set()
+    # Let the main loop handle graceful cleanup (backend.terminate + _stop_mihomo + cmd_server.shutdown)
+    # Do NOT sys.exit(0) or _stop_mihomo() here — that skips cleanup and leaves mihomo orphaned.
 
 
 def main():

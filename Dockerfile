@@ -38,6 +38,7 @@ WORKDIR /app
 # Runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    psmisc \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy pre-built mihomo from builder
