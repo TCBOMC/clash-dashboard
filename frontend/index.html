@@ -253,6 +253,9 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 #conn-search{width:120px!important}
 .proxy-node:hover{border-color:var(--border)!important;background:var(--surface2)!important}
 }
+.transparent-mode{--_t-bg:transparent}
+.transparent-mode #sidebar,.transparent-mode #topbar,.transparent-mode #main{background:transparent!important}
+.transparent-mode html,.transparent-mode body{background:transparent!important}
 </style>
 </head>
 <body>
@@ -415,6 +418,10 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
                 <option value="light">浅色</option>
               </select>
             </div>
+          </div>
+          <div class="settings-row settings-row-inline">
+            <div class="settings-label"><div class="title">透明背景</div><div class="desc">适配透明窗口（NAS）</div></div>
+            <div class="settings-control"><div class="toggle" id="s-transparent-bg" onclick="toggleTransparentBg()"></div></div>
           </div>
         </div>
         <div class="settings-section">
@@ -613,6 +620,8 @@ window.matchMedia('(prefers-color-scheme: light)').addEventListener('change',fun
 });
 // apply saved theme on load
 applyTheme(localStorage.getItem('theme')||'auto');
+// restore transparent background setting
+if(localStorage.getItem('transparent-bg')==='1'){document.body.classList.add('transparent-mode');const t=document.getElementById('s-transparent-bg');if(t)t.classList.add('on')}
 
 const API='';
 let currentPage='overview',logES=null,logPaused=false;
@@ -1374,6 +1383,11 @@ async function saveSettings(){
 }
 
 function toggleSetting(id){document.getElementById(id).classList.toggle('on')}
+function toggleTransparentBg(){
+  const on=document.body.classList.toggle('transparent-mode');
+  document.getElementById('s-transparent-bg').classList.toggle('on',on);
+  localStorage.setItem('transparent-bg',on?'1':'0')
+}
 function setToggle(id,val){const el=document.getElementById(id);if(el)val?el.classList.add('on'):el.classList.remove('on')}
 
 function toast(msg,type='info'){
