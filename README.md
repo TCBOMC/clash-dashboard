@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="./Clash.png" alt="Clash Dashboard Logo" width="120" height="120">
+
 # Clash Dashboard
 
 **带有clash订阅管理功能的现代化WebUI**
