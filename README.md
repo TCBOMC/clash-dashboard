@@ -2,8 +2,7 @@
 
 基于 Docker 的 Clash 代理管理面板，UI 参考 Clash Verge Windows 版，开箱即用。
 
-<img width="1513" height="1035" alt="Screenshot 2026-05-03 at 19-49-24 Clash Dashboard" src="https://github.com/user-attachments/assets/e2de1862-141f-4bc1-84f7-5c56e7dde992" />
-
+<img width="896" height="704" alt="Screenshot 2026-08-16 at 01-15-16 Clash Dashboard" src="https://github.com/user-attachments/assets/e1d7c179-8d67-49a1-a7c0-30eb7cfd0831" />
 
 ## 功能特性
 
