@@ -13,9 +13,9 @@
 
 </div>
 
----
-
 <img width="896" height="704" alt="Screenshot 2026-08-16 at 01-15-16 Clash Dashboard" src="https://github.com/user-attachments/assets/e1d7c179-8d67-49a1-a7c0-30eb7cfd0831" />
+
+---
 
 ## 功能特性
 
