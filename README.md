@@ -1,6 +1,17 @@
+<div align="center">
+
 # Clash Dashboard
 
-基于 Docker 的 Clash 代理管理面板，UI 参考 Clash Verge Windows 版，开箱即用。
+**带有clash订阅管理功能的现代化WebUI**
+
+基于 Docker 的 Clash 代理管理面板，开箱即用，支持订阅下载与管理。
+
+[![Docker](https://img.shields.io/badge/Docker-✓-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+</div>
+
+---
 
 <img width="896" height="704" alt="Screenshot 2026-08-16 at 01-15-16 Clash Dashboard" src="https://github.com/user-attachments/assets/e1d7c179-8d67-49a1-a7c0-30eb7cfd0831" />
 
