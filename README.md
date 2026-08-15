@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./Clash.png" alt="Clash Dashboard Logo" width="120" height="120">
+<img src="https://raw.githubusercontent.com/TCBOMC/clash-dashboard/main/Clash.png" alt="Clash Dashboard Logo" width="120" height="120">
 
 # Clash Dashboard
 
