@@ -3,6 +3,9 @@ name: Build and Push Docker Image
 on:
   push:
     branches: [main]
+    paths:
+      - '**'
+      - '!README.md'  # README 更新不触发镜像构建
   workflow_dispatch:
 
 jobs:
@@ -30,3 +33,25 @@ jobs:
             ${{ secrets.DOCKERHUB_REPO }}:latest
             ${{ secrets.DOCKERHUB_REPO }}:${{ github.run_number }}
           platforms: linux/amd64,linux/arm64
+          labels: |
+            org.opencontainers.image.source=${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ github.run_number }}
+
+  update-readme:
+    needs: build-push
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update Docker Hub README
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_REPO }}
+          short-description: "基于 Docker 的 Clash 代理管理面板，开箱即用，支持订阅下载与管理。"
+          readme-filepath: ./README.md
+          enable-url-completion: true  # 自动补全 URL
