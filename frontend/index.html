@@ -6,10 +6,10 @@
 <link rel="icon" type="image/png" href="/favicon.png" />
 <title>Clash Dashboard</title>
 <style>
-:root{--bg:#1a1b23;--bg2:#13141a;--surface:#22242f;--surface2:#2a2d3a;--surface3:#32364a;--border:#383c52;--text:#e2e4f0;--text2:#9599b3;--text3:#5a5f7a;--accent:#7c5cfc;--accent-light:#9d82ff;--accent-dim:rgba(124,92,252,.15);--green:#46d39a;--green-dim:rgba(70,211,154,.15);--red:#ff6b6b;--red-dim:rgba(255,107,107,.15);--yellow:#ffd166;--yellow-dim:rgba(255,209,102,.15);--blue:#4ecdc4;--blue-dim:rgba(78,205,196,.15);--sidebar-w:220px;--radius:10px;--radius-sm:6px;--shadow:0 4px 24px rgba(0,0,0,.4)}
-[data-theme="light"]{--bg:#ffffff;--bg2:#f5f6fa;--surface:#ffffff;--surface2:#eef0f5;--surface3:#e4e7ef;--border:#d0d3e0;--text:#1a1b2e;--text2:#5a5f80;--text3:#9099b8;--accent:#6b4de0;--accent-light:#5a38d4;--accent-dim:rgba(107,77,224,.12);--green:#1aaa6e;--green-dim:rgba(26,170,110,.12);--red:#e04040;--red-dim:rgba(224,64,64,.12);--yellow:#d49a00;--yellow-dim:rgba(212,154,0,.12);--blue:#0899b0;--blue-dim:rgba(8,153,176,.12);--shadow:0 4px 24px rgba(0,0,0,.12)}
+:root{--bg:#0c0c0d;--bg2:#1f2021;--surface:#22242f;--surface2:#2a2d3a;--surface3:#32364a;--border:#383c52;--text:#e2e4f0;--text2:#9599b3;--text3:#5a5f7a;--accent:#7c5cfc;--accent-light:#9d82ff;--accent-dim:rgba(124,92,252,.15);--green:#46d39a;--green-dim:rgba(70,211,154,.15);--red:#ff6b6b;--red-dim:rgba(255,107,107,.15);--yellow:#ffd166;--yellow-dim:rgba(255,209,102,.15);--blue:#4ecdc4;--blue-dim:rgba(78,205,196,.15);--sidebar-w:220px;--radius:10px;--radius-sm:6px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f3f3f3;--bg2:#ffffff;--surface:#ffffff;--surface2:#eef0f5;--surface3:#e4e7ef;--border:#d0d3e0;--text:#1a1b2e;--text2:#5a5f80;--text3:#9099b8;--accent:#6b4de0;--accent-light:#5a38d4;--accent-dim:rgba(107,77,224,.12);--green:#1aaa6e;--green-dim:rgba(26,170,110,.12);--red:#e04040;--red-dim:rgba(224,64,64,.12);--yellow:#d49a00;--yellow-dim:rgba(212,154,0,.12);--blue:#0899b0;--blue-dim:rgba(8,153,176,.12);--shadow:0 4px 24px rgba(0,0,0,.12)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:var(--bg2);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;overflow:hidden}
+html,body{height:100%;color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;overflow:hidden}
 a{color:inherit;text-decoration:none}
 button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 input,textarea,select{font:inherit;color:inherit;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;outline:none}
@@ -58,7 +58,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 .topbar-btn.primary{background:var(--accent);color:#fff}
 .topbar-btn.primary:hover{background:var(--accent-light)}
 .topbar-btn.danger{background:var(--red-dim);color:var(--red)}
-.page-content{flex:1;overflow-y:auto;padding:20px;background:var(--bg2);border-left:1px solid var(--border);border-top:1px solid var(--border);border-radius:6px 0 0 0}
+.page-content-wrapper {flex: 1;margin-right: 8px;margin-bottom: 8px;border: 1px solid var(--border);border-radius: 6px;overflow: hidden;}
+.page-content{height: 100%;overflow-y: auto;padding: 20px;background: var(--bg2);}
 .page{display:none!important}
 .page.active{display:block!important}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);transition:all .15s;margin-bottom:2px}
@@ -253,9 +254,117 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 #conn-search{width:120px!important}
 .proxy-node:hover{border-color:var(--border)!important;background:var(--surface2)!important}
 }
+/* ============================================================
+   透明模式 - 侧栏 + 顶部标题栏透明，正文保留背景
+   ============================================================ */
 .transparent-mode{--_t-bg:transparent}
-.transparent-mode #sidebar,.transparent-mode #topbar,.transparent-mode #main{background:transparent!important}
 .transparent-mode html,.transparent-mode body{background:transparent!important}
+
+/* 侧栏透明 */
+.transparent-mode #sidebar,
+.transparent-mode .sidebar-nav,
+.transparent-mode .sidebar-footer,
+.transparent-mode .sidebar-logo {
+    background: transparent !important;
+}
+/* ⭐ 侧栏不额外加描边，只保留 footer 原有的上边框并淡化 */
+.transparent-mode .sidebar-footer {
+    border-top: 1px solid rgba(255,255,255,0.06) !important;
+}
+.transparent-mode .nav-item:hover {
+    background: rgba(255,255,255,0.2) !important;
+}
+.transparent-mode .nav-item.active {
+    background: rgba(124,92,252,0.5) !important;
+}
+
+/* 右侧整体背景透明 */
+.transparent-mode #main {
+    background: transparent !important;
+}
+
+/* ⭐ 顶部栏透明，不加描边 */
+.transparent-mode .topbar {
+    background: transparent !important;
+}
+
+/* ⭐ 正文区域保留背景色 */
+.transparent-mode .page-content {
+    background: var(--bg2) !important;
+}
+
+/* ============================================================
+   ⭐ 透明模式下深色主题：侧栏文字更白
+   ============================================================ */
+[data-theme="dark"] .transparent-mode .sidebar-logo .logo-text,
+[data-theme="dark"] .transparent-mode .sidebar-logo .logo-sub,
+[data-theme="dark"] .transparent-mode .nav-item .label,
+[data-theme="dark"] .transparent-mode .nav-item .icon,
+[data-theme="dark"] .transparent-mode .nav-section-title,
+[data-theme="dark"] .transparent-mode .sidebar-status,
+[data-theme="dark"] .transparent-mode .sidebar-status span:not(.status-dot) {
+    color: rgba(255, 255, 255, 0.95) !important;
+}
+
+[data-theme="dark"] .transparent-mode .nav-item {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+[data-theme="dark"] .transparent-mode .nav-item:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: rgba(255, 255, 255, 1) !important;
+}
+[data-theme="dark"] .transparent-mode .nav-item.active {
+    background: rgba(124, 92, 252, 0.5) !important;
+    color: #b8a5ff !important;
+}
+
+[data-theme="dark"] .transparent-mode .nav-badge {
+    background: var(--accent) !important;
+    color: #fff !important;
+}
+
+/* ============================================================
+   ⭐ 透明模式下浅色主题：侧栏文字更黑
+   ============================================================ */
+[data-theme="light"] .transparent-mode .sidebar-logo .logo-text,
+[data-theme="light"] .transparent-mode .sidebar-logo .logo-sub,
+[data-theme="light"] .transparent-mode .nav-item .label,
+[data-theme="light"] .transparent-mode .nav-item .icon,
+[data-theme="light"] .transparent-mode .nav-section-title,
+[data-theme="light"] .transparent-mode .sidebar-status,
+[data-theme="light"] .transparent-mode .sidebar-status span:not(.status-dot) {
+    color: rgba(0, 0, 0, 0.9) !important;
+}
+
+[data-theme="light"] .transparent-mode .nav-item {
+    color: rgba(0, 0, 0, 0.7) !important;
+}
+
+[data-theme="light"] .transparent-mode .nav-item:hover {
+    background: rgba(0, 0, 0, 0.05) !important;
+    color: rgba(0, 0, 0, 1) !important;
+}
+[data-theme="light"] .transparent-mode .nav-item.active {
+    background: rgba(107, 77, 224, 0.5) !important;
+    color: #4a2db8 !important;
+}
+
+[data-theme="light"] .transparent-mode .nav-badge {
+    background: var(--accent) !important;
+    color: #fff !important;
+}
+
+/* 浅色主题其他适配 */
+[data-theme="light"] .transparent-mode .sidebar-footer {
+    border-top: 1px solid rgba(0,0,0,0.06) !important;
+}
+[data-theme="light"] .transparent-mode .nav-item:hover {
+    background: rgba(0,0,0,0.05) !important;
+}
+[data-theme="light"] .transparent-mode .nav-item.active {
+    background: rgba(107,77,224,0.5) !important;
+}
 </style>
 </head>
 <body>
@@ -294,193 +403,193 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
       <div class="topbar-title" id="page-title">概览</div>
       <div id="topbar-actions"></div>
     </div>
-    <div class="page-content">
-
-      <!-- Overview -->
-      <div class="page" id="page-overview">
-        <div class="stats-grid mb-20" id="stats-grid">
-          <div class="stat-card purple"><div class="stat-icon">⚡</div><div class="stat-label">Clash 版本</div><div class="stat-value" id="stat-version">—</div></div>
-          <div class="stat-card blue"><div class="stat-icon">🌐</div><div class="stat-label">运行模式</div><div class="stat-value" id="stat-mode">—</div></div>
-          <div class="stat-card green"><div class="stat-icon">⬇️</div><div class="stat-label">累计下载</div><div class="stat-value" id="stat-dl">—</div></div>
-          <div class="stat-card yellow"><div class="stat-icon">⬆️</div><div class="stat-label">累计上传</div><div class="stat-value" id="stat-ul">—</div></div>
-          <div class="stat-card blue"><div class="stat-icon">🔗</div><div class="stat-label">活跃连接</div><div class="stat-value" id="stat-conns">0</div></div>
-          <div class="stat-card purple"><div class="stat-icon">🔌</div><div class="stat-label" id="stat-port-label">混合端口</div><div class="stat-value" id="stat-port">—</div></div>
-        </div>
-        <div class="traffic-chart-wrap mb-16">
-          <div class="chart-header">
-            <span class="fw-600">实时流量</span>
-            <div class="chart-legend">
-              <span><span class="legend-dot" style="background:var(--green)"></span>下载</span>
-              <span><span class="legend-dot" style="background:var(--accent-light)"></span>上传</span>
-              <span id="live-dl" style="color:var(--green);font-weight:600">0 B/s</span>
-              <span id="live-ul" style="color:var(--accent-light);font-weight:600">0 B/s</span>
-            </div>
-          </div>
-          <canvas id="trafficChart"></canvas>
-        </div>
-        <div class="card">
-          <div class="card-header"><div class="card-title">代理模式</div></div>
-          <div class="card-body">
-            <div class="mode-selector">
-              <button class="mode-btn" id="overview-mode-rule" onclick="setMode('rule')">规则</button>
-              <button class="mode-btn" id="overview-mode-global" onclick="setMode('global')">全局</button>
-              <button class="mode-btn" id="overview-mode-direct" onclick="setMode('direct')">直连</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Proxies -->
-      <div class="page" id="page-proxies">
-        <div id="proxies-loading" class="empty-state"><div class="spinner" style="margin:0 auto"></div></div>
-        <div class="proxy-group-list" id="proxy-group-list"></div>
-      </div>
-
-      <!-- Connections -->
-      <div class="page" id="page-connections">
-        <div class="flex items-center justify-between mb-16">
-          <input id="conn-search" placeholder="搜索连接…" style="width:220px" oninput="filterConnections()" />
-          <button class="topbar-btn danger" onclick="closeAllConns()">关闭全部</button>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>目标</th><th>协议</th><th>规则</th><th>代理链</th><th>下载</th><th>上传</th><th>操作</th></tr></thead>
-            <tbody id="conn-tbody"></tbody>
-          </table>
-        </div>
-        <div id="conn-empty" class="empty-state" style="display:none"><div class="icon">🔗</div><div class="text">暂无活跃连接</div></div>
-      </div>
-
-      <!-- Rules -->
-      <div class="page" id="page-rules">
-        <div class="rules-filter">
-          <input id="rule-search" placeholder="搜索规则…" oninput="filterRules()" />
-          <select id="rule-type-filter" onchange="filterRules()">
-            <option value="">全部类型</option><option>DOMAIN</option><option>DOMAIN-SUFFIX</option><option>DOMAIN-KEYWORD</option><option>IP-CIDR</option><option>GEOIP</option><option>PROCESS-NAME</option><option>MATCH</option>
-          </select>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>#</th><th>类型</th><th>负载</th><th>代理</th></tr></thead>
-            <tbody id="rules-tbody"></tbody>
-          </table>
-        </div>
-        <div id="rules-empty" class="empty-state" style="display:none"><div class="icon">📋</div><div class="text">暂无规则</div></div>
-        <div class="pagination" id="rules-pagination"></div>
-      </div>
-
-      <!-- Logs -->
-      <div class="page" id="page-logs">
-        <div class="flex items-center justify-between mb-12">
-          <select id="log-level-select" onchange="changeLogLevel()" style="width:120px">
-            <option value="info">Info</option><option value="warning">Warning</option><option value="error">Error</option><option value="debug">Debug</option>
-          </select>
-          <div class="flex gap-8">
-            <button class="btn btn-ghost" onclick="clearLogs()">清空</button>
-            <button class="btn btn-ghost" id="log-pause-btn" onclick="toggleLogPause()">暂停</button>
-          </div>
-        </div>
-        <div class="log-container" id="log-container"></div>
-      </div>
-
-      <!-- Subscriptions -->
-      <div class="page" id="page-subscriptions">
-        <div id="sub-empty" class="empty-state"><div class="icon">📦</div><div class="text">还没有订阅，点击右上角添加</div></div>
-        <div class="sub-list" id="sub-list"></div>
-      </div>
-
-      <!-- Rulesets -->
-      <div class="page" id="page-rulesets">
-        <div class="flex items-center gap-8 mb-16">
-          <button class="btn btn-primary" onclick="addRule()">+ 新增规则</button>
-          <button class="btn btn-ghost" onclick="saveRuleConfig()">保存配置</button>
-          <button class="btn btn-ghost" onclick="showRawEditor()">编辑原始配置</button>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>类型</th><th>匹配值</th><th>代理目标</th><th>操作</th></tr></thead>
-            <tbody id="ruleset-tbody"></tbody>
-          </table>
-        </div>
-        <div id="ruleset-empty" class="empty-state"><div class="icon">⚙️</div><div class="text">尚未加载规则，请先激活一个订阅</div></div>
-      </div>
-
-      <!-- Settings -->
-      <div class="page" id="page-settings">
-        <div class="settings-section">
-          <div class="settings-title">界面外观</div>
-          <div class="settings-row">
-            <div class="settings-label"><div class="title">主题</div><div class="desc">深色 / 浅色 / 跟随系统</div></div>
-            <div class="settings-control">
-              <select id="s-theme" onchange="applyTheme(this.value)">
-                <option value="auto">自动（跟随系统）</option>
-                <option value="dark">深色</option>
-                <option value="light">浅色</option>
-              </select>
-            </div>
-          </div>
-          <div class="settings-row settings-row-inline">
-            <div class="settings-label"><div class="title">透明背景</div><div class="desc">适配透明窗口（NAS）</div></div>
-            <div class="settings-control"><div class="toggle" id="s-transparent-bg" onclick="toggleTransparentBg()"></div></div>
-          </div>
-        </div>
-        <div class="settings-section">
-          <div class="settings-title">Clash 核心配置</div>
-          <div class="settings-row">
-            <div class="settings-label"><div class="title">代理端口模式</div><div class="desc">选择端口类型</div></div>
-            <div class="settings-control">
-              <div class="mode-selector" id="proxy-mode-bar" style="gap:0">
-                <button class="mode-btn" id="mode-mixed" onclick="setProxyMode('mixed')">混合模式</button>
-                <button class="mode-btn" id="mode-separated" onclick="setProxyMode('separated')">分离模式</button>
+    <div class="page-content-wrapper">
+        <div class="page-content">
+            <!-- Overview -->
+            <div class="page" id="page-overview">
+              <div class="stats-grid mb-20" id="stats-grid">
+                <div class="stat-card purple"><div class="stat-icon">⚡</div><div class="stat-label">Clash 版本</div><div class="stat-value" id="stat-version">—</div></div>
+                <div class="stat-card blue"><div class="stat-icon">🌐</div><div class="stat-label">运行模式</div><div class="stat-value" id="stat-mode">—</div></div>
+                <div class="stat-card green"><div class="stat-icon">⬇️</div><div class="stat-label">累计下载</div><div class="stat-value" id="stat-dl">—</div></div>
+                <div class="stat-card yellow"><div class="stat-icon">⬆️</div><div class="stat-label">累计上传</div><div class="stat-value" id="stat-ul">—</div></div>
+                <div class="stat-card blue"><div class="stat-icon">🔗</div><div class="stat-label">活跃连接</div><div class="stat-value" id="stat-conns">0</div></div>
+                <div class="stat-card purple"><div class="stat-icon">🔌</div><div class="stat-label" id="stat-port-label">混合端口</div><div class="stat-value" id="stat-port">—</div></div>
+              </div>
+              <div class="traffic-chart-wrap mb-16">
+                <div class="chart-header">
+                  <span class="fw-600">实时流量</span>
+                  <div class="chart-legend">
+                    <span><span class="legend-dot" style="background:var(--green)"></span>下载</span>
+                    <span><span class="legend-dot" style="background:var(--accent-light)"></span>上传</span>
+                    <span id="live-dl" style="color:var(--green);font-weight:600">0 B/s</span>
+                    <span id="live-ul" style="color:var(--accent-light);font-weight:600">0 B/s</span>
+                  </div>
+                </div>
+                <canvas id="trafficChart"></canvas>
+              </div>
+              <div class="card">
+                <div class="card-header"><div class="card-title">代理模式</div></div>
+                <div class="card-body">
+                  <div class="mode-selector">
+                    <button class="mode-btn" id="overview-mode-rule" onclick="setMode('rule')">规则</button>
+                    <button class="mode-btn" id="overview-mode-global" onclick="setMode('global')">全局</button>
+                    <button class="mode-btn" id="overview-mode-direct" onclick="setMode('direct')">直连</button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="settings-row" id="row-mixed-port">
-            <div class="settings-label"><div class="title">混合端口</div><div class="desc">HTTP 和 SOCKS5 共用同一端口</div></div>
-            <div class="settings-control"><input type="number" id="s-mixed-port" value="7890" min="1" max="65535" /></div>
-          </div>
-          <div id="row-separated-ports" style="display:none">
-            <div class="settings-row">
-              <div class="settings-label"><div class="title">HTTP 端口</div><div class="desc">纯 HTTP 代理端口</div></div>
-              <div class="settings-control"><input type="number" id="s-http-port" value="7890" min="1" max="65535" /></div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-label"><div class="title">SOCKS5 端口</div><div class="desc">纯 SOCKS5 代理端口</div></div>
-              <div class="settings-control"><input type="number" id="s-socks-port" value="7891" min="1" max="65535" /></div>
-            </div>
-          </div>
-          <div class="settings-row settings-row-inline">
-            <div class="settings-label"><div class="title">允许局域网连接</div><div class="desc">允许局域网内其他设备使用代理</div></div>
-            <div class="settings-control"><div class="toggle" id="s-allow-lan" onclick="toggleSetting('s-allow-lan')"></div></div>
-          </div>
-          <div class="settings-row settings-row-inline">
-            <div class="settings-label"><div class="title">IPv6</div><div class="desc">启用 IPv6 解析</div></div>
-            <div class="settings-control"><div class="toggle" id="s-ipv6" onclick="toggleSetting('s-ipv6')"></div></div>
-          </div>
-          <div class="settings-row">
-            <div class="settings-label"><div class="title">日志级别</div><div class="desc">Clash 核心的日志详细程度</div></div>
-            <div class="settings-control">
-              <select id="s-log-level"><option value="silent">Silent</option><option value="error">Error</option><option value="warning">Warning</option><option value="info" selected>Info</option><option value="debug">Debug</option></select>
-            </div>
-          </div>
-        </div>
-        <div class="settings-section">
-          <div class="settings-title">API 连接</div>
-          <div class="settings-row">
-            <div class="settings-label"><div class="title">Clash API 地址</div><div class="desc">Clash RESTful API 的基础地址</div></div>
-            <div class="settings-control"><input type="text" id="s-api-base" placeholder="http://clash:9090" /></div>
-          </div>
-          <div class="settings-row">
-            <div class="settings-label"><div class="title">API 密钥</div><div class="desc">已在环境变量中设置则显示 ****</div></div>
-            <div class="settings-control"><input type="password" id="s-secret" placeholder="（留空则不修改）" /></div>
-          </div>
-        </div>
-        <div style="display:flex;gap:10px;margin-top:8px">
-          <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
-          <button class="btn btn-ghost" onclick="loadSettings()">重置</button>
-        </div>
-      </div>
 
+            <!-- Proxies -->
+            <div class="page" id="page-proxies">
+              <div id="proxies-loading" class="empty-state"><div class="spinner" style="margin:0 auto"></div></div>
+              <div class="proxy-group-list" id="proxy-group-list"></div>
+            </div>
+
+            <!-- Connections -->
+            <div class="page" id="page-connections">
+              <div class="flex items-center justify-between mb-16">
+                <input id="conn-search" placeholder="搜索连接…" style="width:220px" oninput="filterConnections()" />
+                <button class="topbar-btn danger" onclick="closeAllConns()">关闭全部</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>目标</th><th>协议</th><th>规则</th><th>代理链</th><th>下载</th><th>上传</th><th>操作</th></tr></thead>
+                  <tbody id="conn-tbody"></tbody>
+                </table>
+              </div>
+              <div id="conn-empty" class="empty-state" style="display:none"><div class="icon">🔗</div><div class="text">暂无活跃连接</div></div>
+            </div>
+
+            <!-- Rules -->
+            <div class="page" id="page-rules">
+              <div class="rules-filter">
+                <input id="rule-search" placeholder="搜索规则…" oninput="filterRules()" />
+                <select id="rule-type-filter" onchange="filterRules()">
+                  <option value="">全部类型</option><option>DOMAIN</option><option>DOMAIN-SUFFIX</option><option>DOMAIN-KEYWORD</option><option>IP-CIDR</option><option>GEOIP</option><option>PROCESS-NAME</option><option>MATCH</option>
+                </select>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>#</th><th>类型</th><th>负载</th><th>代理</th></tr></thead>
+                  <tbody id="rules-tbody"></tbody>
+                </table>
+              </div>
+              <div id="rules-empty" class="empty-state" style="display:none"><div class="icon">📋</div><div class="text">暂无规则</div></div>
+              <div class="pagination" id="rules-pagination"></div>
+            </div>
+
+            <!-- Logs -->
+            <div class="page" id="page-logs">
+              <div class="flex items-center justify-between mb-12">
+                <select id="log-level-select" onchange="changeLogLevel()" style="width:120px">
+                  <option value="info">Info</option><option value="warning">Warning</option><option value="error">Error</option><option value="debug">Debug</option>
+                </select>
+                <div class="flex gap-8">
+                  <button class="btn btn-ghost" onclick="clearLogs()">清空</button>
+                  <button class="btn btn-ghost" id="log-pause-btn" onclick="toggleLogPause()">暂停</button>
+                </div>
+              </div>
+              <div class="log-container" id="log-container"></div>
+            </div>
+
+            <!-- Subscriptions -->
+            <div class="page" id="page-subscriptions">
+              <div id="sub-empty" class="empty-state"><div class="icon">📦</div><div class="text">还没有订阅，点击右上角添加</div></div>
+              <div class="sub-list" id="sub-list"></div>
+            </div>
+
+            <!-- Rulesets -->
+            <div class="page" id="page-rulesets">
+              <div class="flex items-center gap-8 mb-16">
+                <button class="btn btn-primary" onclick="addRule()">+ 新增规则</button>
+                <button class="btn btn-ghost" onclick="saveRuleConfig()">保存配置</button>
+                <button class="btn btn-ghost" onclick="showRawEditor()">编辑原始配置</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>类型</th><th>匹配值</th><th>代理目标</th><th>操作</th></tr></thead>
+                  <tbody id="ruleset-tbody"></tbody>
+                </table>
+              </div>
+              <div id="ruleset-empty" class="empty-state"><div class="icon">⚙️</div><div class="text">尚未加载规则，请先激活一个订阅</div></div>
+            </div>
+
+            <!-- Settings -->
+            <div class="page" id="page-settings">
+              <div class="settings-section">
+                <div class="settings-title">界面外观</div>
+                <div class="settings-row">
+                  <div class="settings-label"><div class="title">主题</div><div class="desc">深色 / 浅色 / 跟随系统</div></div>
+                  <div class="settings-control">
+                    <select id="s-theme" onchange="applyTheme(this.value)">
+                      <option value="auto">自动（跟随系统）</option>
+                      <option value="dark">深色</option>
+                      <option value="light">浅色</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="settings-row settings-row-inline">
+                  <div class="settings-label"><div class="title">透明背景</div><div class="desc">适配透明窗口（NAS）</div></div>
+                  <div class="settings-control"><div class="toggle" id="s-transparent-bg" onclick="toggleTransparentBg()"></div></div>
+                </div>
+              </div>
+              <div class="settings-section">
+                <div class="settings-title">Clash 核心配置</div>
+                <div class="settings-row">
+                  <div class="settings-label"><div class="title">代理端口模式</div><div class="desc">选择端口类型</div></div>
+                  <div class="settings-control">
+                    <div class="mode-selector" id="proxy-mode-bar" style="gap:0">
+                      <button class="mode-btn" id="mode-mixed" onclick="setProxyMode('mixed')">混合模式</button>
+                      <button class="mode-btn" id="mode-separated" onclick="setProxyMode('separated')">分离模式</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row" id="row-mixed-port">
+                  <div class="settings-label"><div class="title">混合端口</div><div class="desc">HTTP 和 SOCKS5 共用同一端口</div></div>
+                  <div class="settings-control"><input type="number" id="s-mixed-port" value="7890" min="1" max="65535" /></div>
+                </div>
+                <div id="row-separated-ports" style="display:none">
+                  <div class="settings-row">
+                    <div class="settings-label"><div class="title">HTTP 端口</div><div class="desc">纯 HTTP 代理端口</div></div>
+                    <div class="settings-control"><input type="number" id="s-http-port" value="7890" min="1" max="65535" /></div>
+                  </div>
+                  <div class="settings-row">
+                    <div class="settings-label"><div class="title">SOCKS5 端口</div><div class="desc">纯 SOCKS5 代理端口</div></div>
+                    <div class="settings-control"><input type="number" id="s-socks-port" value="7891" min="1" max="65535" /></div>
+                  </div>
+                </div>
+                <div class="settings-row settings-row-inline">
+                  <div class="settings-label"><div class="title">允许局域网连接</div><div class="desc">允许局域网内其他设备使用代理</div></div>
+                  <div class="settings-control"><div class="toggle" id="s-allow-lan" onclick="toggleSetting('s-allow-lan')"></div></div>
+                </div>
+                <div class="settings-row settings-row-inline">
+                  <div class="settings-label"><div class="title">IPv6</div><div class="desc">启用 IPv6 解析</div></div>
+                  <div class="settings-control"><div class="toggle" id="s-ipv6" onclick="toggleSetting('s-ipv6')"></div></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-label"><div class="title">日志级别</div><div class="desc">Clash 核心的日志详细程度</div></div>
+                  <div class="settings-control">
+                    <select id="s-log-level"><option value="silent">Silent</option><option value="error">Error</option><option value="warning">Warning</option><option value="info" selected>Info</option><option value="debug">Debug</option></select>
+                  </div>
+                </div>
+              </div>
+              <div class="settings-section">
+                <div class="settings-title">API 连接</div>
+                <div class="settings-row">
+                  <div class="settings-label"><div class="title">Clash API 地址</div><div class="desc">Clash RESTful API 的基础地址</div></div>
+                  <div class="settings-control"><input type="text" id="s-api-base" placeholder="http://clash:9090" /></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-label"><div class="title">API 密钥</div><div class="desc">已在环境变量中设置则显示 ****</div></div>
+                  <div class="settings-control"><input type="password" id="s-secret" placeholder="（留空则不修改）" /></div>
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;margin-top:8px">
+                <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+                <button class="btn btn-ghost" onclick="loadSettings()">重置</button>
+              </div>
+            </div>
+        </div>
     </div>
   </div>
 </div>
