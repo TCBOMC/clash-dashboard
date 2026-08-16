@@ -40,7 +40,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get latest tag and generate version
+      - name: Generate version
         id: version
         run: |
           # 获取最新的正式版本 tag（排除 build tag）
@@ -51,7 +51,6 @@ jobs:
           
           # 初始化 version.json（如果不存在）
           if [ ! -f "$VERSION_FILE" ]; then
-            # 从最新 tag 初始化
             echo "{\"tag\":\"$LATEST_TAG\",\"build\":0}" > $VERSION_FILE
             echo "Created version.json from tag: $LATEST_TAG"
           fi
@@ -66,15 +65,10 @@ jobs:
             # 情况1: 新 tag 触发
             NEW_TAG="${{ github.ref_name }}"
             NEW_VERSION=${NEW_TAG#v}
-            echo "✅ New tag detected: $NEW_TAG"
+            echo "New tag detected: $NEW_TAG"
             
-            # 更新 version.json
-            cat > $VERSION_FILE << EOF
-            {
-              "tag": "$NEW_TAG",
-              "build": 0
-            }
-            EOF
+            # 更新 version.json（使用 echo 避免 EOF 问题）
+            echo "{\"tag\":\"$NEW_TAG\",\"build\":0}" > $VERSION_FILE
             BUILD=0
             VERSION=$NEW_VERSION
             TAG=$NEW_TAG
@@ -100,15 +94,10 @@ jobs:
             
             NEW_VERSION="$MAJOR.$MINOR.$PATCH"
             NEW_TAG="v$NEW_VERSION"
-            echo "✅ Manual version bump: $NEW_TAG"
+            echo "Manual version bump: $NEW_TAG"
             
-            # 更新 version.json
-            cat > $VERSION_FILE << EOF
-            {
-              "tag": "$NEW_TAG",
-              "build": 0
-            }
-            EOF
+            # 更新 version.json（使用 echo 避免 EOF 问题）
+            echo "{\"tag\":\"$NEW_TAG\",\"build\":0}" > $VERSION_FILE
             BUILD=0
             VERSION=$NEW_VERSION
             TAG=$NEW_TAG
@@ -118,13 +107,8 @@ jobs:
             # 检查当前最新的 tag 是否和 version.json 中保存的一致
             if [ "$LATEST_TAG" != "$SAVED_TAG" ]; then
               # 有新的 tag，但这次不是 tag 触发（可能是手动创建的 tag）
-              echo "⚠️ Latest tag changed to $LATEST_TAG, updating version.json"
-              cat > $VERSION_FILE << EOF
-              {
-                "tag": "$LATEST_TAG",
-                "build": 0
-              }
-              EOF
+              echo "Latest tag changed to $LATEST_TAG, updating version.json"
+              echo "{\"tag\":\"$LATEST_TAG\",\"build\":0}" > $VERSION_FILE
               BUILD=0
               VERSION=$LATEST_VERSION
               TAG=$LATEST_TAG
@@ -133,15 +117,10 @@ jobs:
               BUILD=$((BUILD + 1))
               VERSION=${SAVED_TAG#v}
               TAG=$SAVED_TAG
-              echo "✅ Code update: build number increased to $BUILD"
+              echo "Code update: build number increased to $BUILD"
               
               # 更新 build 号
-              cat > $VERSION_FILE << EOF
-              {
-                "tag": "$TAG",
-                "build": $BUILD
-              }
-              EOF
+              echo "{\"tag\":\"$TAG\",\"build\":$BUILD}" > $VERSION_FILE
             fi
           fi
           
