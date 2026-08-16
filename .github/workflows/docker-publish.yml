@@ -31,6 +31,8 @@ jobs:
       full_version: ${{ steps.version.outputs.full_version }}
       version: ${{ steps.version.outputs.version }}
       build: ${{ steps.version.outputs.build }}
+    permissions:
+      contents: write  # 添加这一行，赋予写入权限
     steps:
       - name: Checkout
         uses: actions/checkout@v4
