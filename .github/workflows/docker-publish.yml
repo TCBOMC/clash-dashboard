@@ -8,7 +8,7 @@ on:
     paths:
       - '**'
       - '!README.md'
-      - '!.version.json'  # 关键：version.json 更新不触发构建
+      - '!.version.json'
   workflow_dispatch:
     inputs:
       version_bump:
@@ -32,7 +32,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       build: ${{ steps.version.outputs.build }}
     permissions:
-      contents: write  # 添加这一行，赋予写入权限
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,32 +40,49 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate version
+      - name: Get latest tag and generate version
         id: version
         run: |
-          # 初始化版本文件（如果不存在）
+          # 获取最新的正式版本 tag（排除 build tag）
+          LATEST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n1 || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+          LATEST_VERSION=${LATEST_TAG#v}
+          echo "Latest version: $LATEST_VERSION"
+          
+          # 初始化 version.json（如果不存在）
           if [ ! -f "$VERSION_FILE" ]; then
-            echo '{"major":0,"minor":0,"patch":0,"build":0}' > $VERSION_FILE
+            # 从最新 tag 初始化
+            echo "{\"tag\":\"$LATEST_TAG\",\"build\":0}" > $VERSION_FILE
+            echo "Created version.json from tag: $LATEST_TAG"
           fi
           
-          # 读取当前版本
-          MAJOR=$(jq -r '.major' $VERSION_FILE)
-          MINOR=$(jq -r '.minor' $VERSION_FILE)
-          PATCH=$(jq -r '.patch' $VERSION_FILE)
+          # 读取 version.json
+          SAVED_TAG=$(jq -r '.tag' $VERSION_FILE)
           BUILD=$(jq -r '.build' $VERSION_FILE)
-          
-          echo "Current version: $MAJOR.$MINOR.$PATCH.$BUILD"
+          echo "Saved tag: $SAVED_TAG, build: $BUILD"
           
           # 判断触发类型
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             # 情况1: 新 tag 触发
-            TAG_VERSION="${{ github.ref_name }}"
-            TAG_VERSION=${TAG_VERSION#v}
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$TAG_VERSION"
+            NEW_TAG="${{ github.ref_name }}"
+            NEW_VERSION=${NEW_TAG#v}
+            echo "✅ New tag detected: $NEW_TAG"
+            
+            # 更新 version.json
+            cat > $VERSION_FILE << EOF
+            {
+              "tag": "$NEW_TAG",
+              "build": 0
+            }
+            EOF
             BUILD=0
-            echo "Tag detected: $MAJOR.$MINOR.$PATCH"
+            VERSION=$NEW_VERSION
+            TAG=$NEW_TAG
+            
           elif [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ inputs.version_bump }}" != "" ]; then
             # 情况2: 手动触发版本升级
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_VERSION"
+            
             case "${{ inputs.version_bump }}" in
               major)
                 MAJOR=$((MAJOR + 1))
@@ -80,31 +97,62 @@ jobs:
                 PATCH=$((PATCH + 1))
                 ;;
             esac
+            
+            NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+            NEW_TAG="v$NEW_VERSION"
+            echo "✅ Manual version bump: $NEW_TAG"
+            
+            # 更新 version.json
+            cat > $VERSION_FILE << EOF
+            {
+              "tag": "$NEW_TAG",
+              "build": 0
+            }
+            EOF
             BUILD=0
-            echo "Manual version bump: $MAJOR.$MINOR.$PATCH"
+            VERSION=$NEW_VERSION
+            TAG=$NEW_TAG
+            
           else
-            # 情况3: 普通代码更新 → 只增加 build 号
-            BUILD=$((BUILD + 1))
-            echo "Code update: build number increased to $BUILD"
+            # 情况3: 普通代码更新
+            # 检查当前最新的 tag 是否和 version.json 中保存的一致
+            if [ "$LATEST_TAG" != "$SAVED_TAG" ]; then
+              # 有新的 tag，但这次不是 tag 触发（可能是手动创建的 tag）
+              echo "⚠️ Latest tag changed to $LATEST_TAG, updating version.json"
+              cat > $VERSION_FILE << EOF
+              {
+                "tag": "$LATEST_TAG",
+                "build": 0
+              }
+              EOF
+              BUILD=0
+              VERSION=$LATEST_VERSION
+              TAG=$LATEST_TAG
+            else
+              # 正常的代码更新，build 加 1
+              BUILD=$((BUILD + 1))
+              VERSION=${SAVED_TAG#v}
+              TAG=$SAVED_TAG
+              echo "✅ Code update: build number increased to $BUILD"
+              
+              # 更新 build 号
+              cat > $VERSION_FILE << EOF
+              {
+                "tag": "$TAG",
+                "build": $BUILD
+              }
+              EOF
+            fi
           fi
           
-          # 写回版本文件
-          cat > $VERSION_FILE << EOF
-          {
-            "major": $MAJOR,
-            "minor": $MINOR,
-            "patch": $PATCH,
-            "build": $BUILD
-          }
-          EOF
+          FULL_VERSION="${VERSION}.${BUILD}"
+          echo "Final version: $FULL_VERSION"
           
           # 输出版本号
-          echo "major=$MAJOR" >> $GITHUB_OUTPUT
-          echo "minor=$MINOR" >> $GITHUB_OUTPUT
-          echo "patch=$PATCH" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "build=$BUILD" >> $GITHUB_OUTPUT
-          echo "version=$MAJOR.$MINOR.$PATCH" >> $GITHUB_OUTPUT
-          echo "full_version=$MAJOR.$MINOR.$PATCH.$BUILD" >> $GITHUB_OUTPUT
+          echo "full_version=$FULL_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Commit version file
         run: |
@@ -117,13 +165,14 @@ jobs:
   build-push:
     needs: version-manager
     runs-on: ubuntu-latest
-    # 重要: 避免在 version.json 提交时再次触发
     if: |
       github.event_name != 'push' || 
       !contains(github.event.head_commit.message, '[skip ci]')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
