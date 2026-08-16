@@ -3,48 +3,161 @@ name: Build and Push Docker Image
 on:
   push:
     branches: [main]
+    tags:
+      - 'v*'  # 匹配 v1.0.0, v2.1.3, v1.0.0-alpha.1 等
     paths:
       - '**'
-      - '!README.md'  # README 更新不触发镜像构建
+      - '!README.md'
+      - '!.gitignore'
+      - '!.github/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - '**'
+      - '!README.md'
+      - '!.gitignore'
+      - '!.github/**'
   workflow_dispatch:
+    inputs:
+      custom_tag:
+        description: '自定义版本标签（可选，留空则自动生成）'
+        required: false
+        type: string
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_REPO }}
 
 jobs:
+  # 构建和推送主镜像
   build-push:
     runs-on: ubuntu-latest
+    # PR 不推送，只构建测试
+    if: github.event_name != 'pull_request'
+    
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取所有历史和标签，用于版本检测
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-flags: --debug
+          driver-opts: |
+            image=moby/buildkit:latest
+            network=host
 
-      - name: Login to Docker Hub
+      - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+        if: github.event_name != 'pull_request'
 
-      - name: Build and Push
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          # 生成完整的标签集
+          tags: |
+            # 始终推送 latest
+            type=raw,value=latest,enable={{is_default_branch}}
+            
+            # 分支标签（main 分支）
+            type=ref,event=branch,enable={{is_default_branch}}
+            
+            # Git tag 的语义化版本标签
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            
+            # PR 预览标签（不推送）
+            type=ref,event=pr,enable=false
+            
+            # Git commit SHA（短格式）
+            type=sha,format=short,prefix=
+            
+            # 日期 + 构建号（用于 edge 版本）
+            type=raw,value=edge-{{date 'YYYYMMDD'}}-${{ github.run_number }}
+            
+            # 自定义标签（如果 workflow_dispatch 提供）
+            type=raw,value=${{ inputs.custom_tag }},enable=${{ inputs.custom_tag != '' }}
+            
+            # GitHub run number（兼容旧版本）
+            type=raw,value=build-${{ github.run_number }}
+          
+          # 标签格式转换
+          flavor: |
+            latest=false  # 不自动添加 latest，我们手动控制
+            prefix=
+            suffix=
+          
+          # OCI 标签
+          labels: |
+            org.opencontainers.image.title=${{ github.event.repository.name }}
+            org.opencontainers.image.description=基于 Docker 的 Clash 代理管理面板，开箱即用
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MIT
+
+      - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_REPO }}:latest
-            ${{ secrets.DOCKERHUB_REPO }}:${{ github.run_number }}
-          platforms: linux/amd64,linux/arm64
-          labels: |
-            org.opencontainers.image.source=${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ github.run_number }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64,linux/arm/v7  # 支持更多架构
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max  # 添加软件供应链证明
+          sbom: true  # 生成 SBOM（软件物料清单）
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ github.ref_name }}
 
+      - name: Inspect image
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "## 推送的标签" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" | tr ' ' '\n' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
+          echo "## 镜像标签" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.labels }}" | tr ',' '\n' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  # 更新 README
   update-readme:
     needs: build-push
     runs-on: ubuntu-latest
-    if: always() && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Update Docker Hub README
         uses: peter-evans/dockerhub-description@v4
@@ -52,6 +165,55 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ secrets.DOCKERHUB_REPO }}
-          short-description: "基于 Docker 的 Clash 代理管理面板，开箱即用，支持订阅下载与管理。"
+          short-description: |
+            基于 Docker 的 Clash 代理管理面板，开箱即用，支持订阅下载与管理。
+            支持 amd64/arm64/armv7 多架构。
           readme-filepath: ./README.md
-          enable-url-completion: true  # 自动补全 URL
+          enable-url-completion: true
+
+  # 可选：创建 GitHub Release（当有 tag 时）
+  create-release:
+    needs: build-push
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          # 生成从上一个 tag 到现在的提交日志
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREVIOUS_TAG" ]; then
+            NOTES=$(git log --pretty=format:"- %s" $PREVIOUS_TAG..HEAD)
+          else
+            NOTES=$(git log --pretty=format:"- %s")
+          fi
+          
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "## Docker 镜像" >> $GITHUB_OUTPUT
+          echo "\`\`\`" >> $GITHUB_OUTPUT
+          echo "docker pull ${{ secrets.DOCKERHUB_REPO }}:${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          echo "docker pull ${{ secrets.DOCKERHUB_REPO }}:latest" >> $GITHUB_OUTPUT
+          echo "\`\`\`" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "## 更新内容" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: false
+          token: ${{ secrets.GITHUB_TOKEN }}
