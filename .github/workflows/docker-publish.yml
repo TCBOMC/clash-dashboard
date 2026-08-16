@@ -3,19 +3,125 @@ name: Build and Push Docker Image
 on:
   push:
     branches: [main]
+    tags:
+      - 'v*'
     paths:
       - '**'
       - '!README.md'
+      - '!.version.json'  # 关键：version.json 更新不触发构建
   workflow_dispatch:
+    inputs:
+      version_bump:
+        description: '版本类型 (major/minor/patch)'
+        required: false
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+env:
+  VERSION_FILE: .version.json
 
 jobs:
-  build-push:
+  version-manager:
     runs-on: ubuntu-latest
+    outputs:
+      full_version: ${{ steps.version.outputs.full_version }}
+      version: ${{ steps.version.outputs.version }}
+      build: ${{ steps.version.outputs.build }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 新增：获取所有标签信息
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate version
+        id: version
+        run: |
+          # 初始化版本文件（如果不存在）
+          if [ ! -f "$VERSION_FILE" ]; then
+            echo '{"major":0,"minor":0,"patch":0,"build":0}' > $VERSION_FILE
+          fi
+          
+          # 读取当前版本
+          MAJOR=$(jq -r '.major' $VERSION_FILE)
+          MINOR=$(jq -r '.minor' $VERSION_FILE)
+          PATCH=$(jq -r '.patch' $VERSION_FILE)
+          BUILD=$(jq -r '.build' $VERSION_FILE)
+          
+          echo "Current version: $MAJOR.$MINOR.$PATCH.$BUILD"
+          
+          # 判断触发类型
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # 情况1: 新 tag 触发
+            TAG_VERSION="${{ github.ref_name }}"
+            TAG_VERSION=${TAG_VERSION#v}
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$TAG_VERSION"
+            BUILD=0
+            echo "Tag detected: $MAJOR.$MINOR.$PATCH"
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ inputs.version_bump }}" != "" ]; then
+            # 情况2: 手动触发版本升级
+            case "${{ inputs.version_bump }}" in
+              major)
+                MAJOR=$((MAJOR + 1))
+                MINOR=0
+                PATCH=0
+                ;;
+              minor)
+                MINOR=$((MINOR + 1))
+                PATCH=0
+                ;;
+              patch)
+                PATCH=$((PATCH + 1))
+                ;;
+            esac
+            BUILD=0
+            echo "Manual version bump: $MAJOR.$MINOR.$PATCH"
+          else
+            # 情况3: 普通代码更新 → 只增加 build 号
+            BUILD=$((BUILD + 1))
+            echo "Code update: build number increased to $BUILD"
+          fi
+          
+          # 写回版本文件
+          cat > $VERSION_FILE << EOF
+          {
+            "major": $MAJOR,
+            "minor": $MINOR,
+            "patch": $PATCH,
+            "build": $BUILD
+          }
+          EOF
+          
+          # 输出版本号
+          echo "major=$MAJOR" >> $GITHUB_OUTPUT
+          echo "minor=$MINOR" >> $GITHUB_OUTPUT
+          echo "patch=$PATCH" >> $GITHUB_OUTPUT
+          echo "build=$BUILD" >> $GITHUB_OUTPUT
+          echo "version=$MAJOR.$MINOR.$PATCH" >> $GITHUB_OUTPUT
+          echo "full_version=$MAJOR.$MINOR.$PATCH.$BUILD" >> $GITHUB_OUTPUT
+
+      - name: Commit version file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add $VERSION_FILE
+          git commit -m "chore: update version to ${{ steps.version.outputs.full_version }} [skip ci]" || echo "No changes to commit"
+          git push
+
+  build-push:
+    needs: version-manager
+    runs-on: ubuntu-latest
+    # 重要: 避免在 version.json 提交时再次触发
+    if: |
+      github.event_name != 'push' || 
+      !contains(github.event.head_commit.message, '[skip ci]')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -26,31 +132,23 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ secrets.DOCKERHUB_REPO }}
-          tags: |
-            type=raw,value=latest
-            type=raw,value=${{ github.run_number }}
-            type=sha,format=short,prefix=sha-
-          labels: |
-            org.opencontainers.image.source=${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ github.run_number }}
-
       - name: Build and Push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ secrets.DOCKERHUB_REPO }}:latest
+            ${{ secrets.DOCKERHUB_REPO }}:${{ needs.version-manager.outputs.version }}
+            ${{ secrets.DOCKERHUB_REPO }}:${{ needs.version-manager.outputs.full_version }}
           platforms: linux/amd64,linux/arm64
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.version-manager.outputs.full_version }}
 
   update-readme:
-    needs: build-push
+    needs: [version-manager, build-push]
     runs-on: ubuntu-latest
     if: always() && github.ref == 'refs/heads/main'
     steps:
