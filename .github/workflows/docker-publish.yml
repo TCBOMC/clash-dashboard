@@ -169,8 +169,8 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_REPO }}:latest
-            ${{ secrets.DOCKERHUB_REPO }}:${{ needs.version-manager.outputs.version }}
-            ${{ secrets.DOCKERHUB_REPO }}:${{ needs.version-manager.outputs.full_version }}
+            ${{ secrets.DOCKERHUB_REPO }}:v${{ needs.version-manager.outputs.version }}
+            ${{ secrets.DOCKERHUB_REPO }}:v${{ needs.version-manager.outputs.full_version }}
           platforms: linux/amd64,linux/arm64
           labels: |
             org.opencontainers.image.source=${{ github.repository }}
