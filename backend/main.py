@@ -222,7 +222,6 @@ async def _auto_update_scheduler():
 
 async def _update_subscription_content(sub_id: str):
     """Internal function to update subscription content without HTTP error raising."""
-    # This is a simplified version of update_subscription_now focusing on content update
     import base64 as _base64
     import datetime as _dt
 
@@ -276,14 +275,18 @@ async def _update_subscription_content(sub_id: str):
             save_json_file(SUBSCRIPTIONS_FILE, data)
             return
 
+    # 提取原始规则
+    original_rules = cfg.get("rules", [])
+
     # Save to sub file
     sub_file = CONFIG_DIR / f"sub_{sub_id}.yaml"
     sub_file.write_text(content, encoding="utf-8")
 
-    # Update subscription metadata
+    # Update subscription metadata - 保留前置和后置规则，更新原始规则
     sub["last_updated"] = time.strftime("%Y-%m-%dT%H:%M:%S")
     sub["node_count"] = node_count
     sub["status"] = "ok" if node_count > 0 else "error"
+    sub["original_rules"] = original_rules  # 保存原始规则
     save_json_file(SUBSCRIPTIONS_FILE, data)
 
     # Re-apply to mihomo if this is the active subscription
@@ -762,6 +765,9 @@ async def create_subscription(sub: SubscriptionCreate):
         "last_updated": None,
         "node_count": 0,
         "status": "pending",
+        "pre_rules": [],        # 前置规则
+        "original_rules": [],   # 原始规则
+        "post_rules": [],       # 后置规则
     }
     data["subscriptions"].append(new_sub)
     save_json_file(SUBSCRIPTIONS_FILE, data)
@@ -778,12 +784,6 @@ async def create_subscription_from_file(
 ):
     """
     Upload a YAML config file to create a subscription.
-    Accepts multipart form data with:
-      - name: subscription name
-      - url: subscription URL (optional)
-      - update_interval: auto-update interval in seconds (0 = disabled)
-      - auto_update: "true"/"false"
-      - file: the YAML config file
     """
     name = name.strip()
     url = url.strip() if url else None
@@ -835,6 +835,10 @@ async def create_subscription_from_file(
         "last_updated": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "node_count": proxy_count,
         "status": "ok" if proxy_count > 0 else "pending",
+        "pre_rules": [],
+        # 🔥 不保存原始规则，修改记录为空
+        "original_rules": [],
+        "post_rules": [],
     }
     data["subscriptions"].append(new_sub)
     save_json_file(SUBSCRIPTIONS_FILE, data)
@@ -862,12 +866,12 @@ async def update_subscription(sub_id: str, sub: SubscriptionUpdate):
 
 @app.put("/api/subscriptions/{sub_id}/file")
 async def update_subscription_from_file(
-    sub_id: str,
-    name: str | None = Form(None),
-    url: str | None = Form(None),
-    update_interval: int = Form(0),
-    auto_update: bool = Form(False),
-    file: UploadFile | None = File(None),
+        sub_id: str,
+        name: str | None = Form(None),
+        url: str | None = Form(None),
+        update_interval: int = Form(0),
+        auto_update: bool = Form(False),
+        file: UploadFile | None = File(None),
 ):
     """
     Update a subscription via file upload or form data.
@@ -893,6 +897,8 @@ async def update_subscription_from_file(
 
     # If file is provided, update the config
     node_count = sub.get("node_count", 0)
+    original_rules = sub.get("original_rules", [])
+
     if file:
         content = await file.read()
         try:
@@ -910,6 +916,7 @@ async def update_subscription_from_file(
 
         proxies = cfg.get("proxies", []) or []
         node_count = len(proxies)
+        original_rules = cfg.get("rules", [])  # 提取原始规则
 
         # Save the config to clash-config directory
         sub_file = CONFIG_DIR / f"sub_{sub_id}.yaml"
@@ -923,6 +930,7 @@ async def update_subscription_from_file(
         sub["node_count"] = node_count
         sub["status"] = "ok" if node_count > 0 else "pending"
         sub["last_updated"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+        sub["original_rules"] = original_rules  # 保存原始规则
 
     save_json_file(SUBSCRIPTIONS_FILE, data)
 
@@ -940,6 +948,41 @@ async def delete_subscription(sub_id: str):
     data["subscriptions"] = [s for s in data["subscriptions"] if s["id"] != sub_id]
     save_json_file(SUBSCRIPTIONS_FILE, data)
     return {"success": True}
+
+
+@app.post("/api/subscriptions/{sub_id}/rules/reset")
+async def reset_subscription_rules(sub_id: str):
+    """
+    重置订阅的规则修改
+    清空 pre_rules, original_rules(修改记录), post_rules
+    然后重新应用配置
+    """
+    data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})
+    sub = next((s for s in data["subscriptions"] if s["id"] == sub_id), None)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    # 清空所有规则修改
+    sub["pre_rules"] = []
+    sub["original_rules"] = []  # 清空修改记录
+    sub["post_rules"] = []
+
+    save_json_file(SUBSCRIPTIONS_FILE, data)
+    logger.info(f"[RESET_RULES] Reset all rule modifications for subscription {sub['name']} (id={sub_id})")
+
+    # 如果是激活的订阅，重新应用配置（恢复原始规则）
+    if data.get("active_subscription") == sub_id:
+        try:
+            await _apply_sub_to_mihomo(sub_id)
+            logger.info(f"[RESET_RULES] Successfully re-applied original rules for subscription {sub_id}")
+        except Exception as e:
+            logger.warning(f"[RESET_RULES] Failed to re-apply subscription: {e}")
+            return {
+                "success": True,
+                "warning": f"规则已重置但应用配置时出错: {str(e)}"
+            }
+
+    return {"success": True, "message": "规则已重置，恢复到原始配置"}
 
 
 @app.post("/api/subscriptions/{sub_id}/update")
@@ -964,9 +1007,6 @@ async def update_subscription_now(sub_id: str):
             resp = await client.get(
                 url,
                 headers={
-                    # Some subscription servers (e.g. Inno6) return full YAML with
-                    # proxy nodes only when the UA looks like a Clash client.
-                    # Use clash-verge UA as the default to maximise compatibility.
                     "User-Agent": "clash-verge/1.0.0",
                 },
             )
@@ -990,9 +1030,9 @@ async def update_subscription_now(sub_id: str):
         if _port_open("127.0.0.1", 7890):
             try:
                 async with httpx.AsyncClient(
-                    timeout=30,
-                    follow_redirects=True,
-                    proxy="http://127.0.0.1:7890",
+                        timeout=30,
+                        follow_redirects=True,
+                        proxy="http://127.0.0.1:7890",
                 ) as client:
                     resp = await client.get(
                         url,
@@ -1033,7 +1073,6 @@ async def update_subscription_now(sub_id: str):
         try:
             import base64 as _base64
             decoded = _base64.b64decode(content).decode("utf-8")
-            # Some providers double-encode: try a second decode if first yields base64-looking result
             try:
                 cfg2 = yaml.safe_load(decoded)
                 decoded_cfg = cfg2
@@ -1041,22 +1080,20 @@ async def update_subscription_now(sub_id: str):
                 decoded_cfg = None
 
             if decoded_cfg is None:
-                # First decode didn't yield valid YAML — try double-decode
                 try:
                     double_decoded = _base64.b64decode(decoded.strip()).decode("utf-8")
                     decoded = double_decoded
                     logger.info(f"[UPDATE:3] Double base64 decode OK")
                 except Exception:
-                    pass  # Not double-encoded, use single decode result
+                    pass
 
             cfg = yaml.safe_load(decoded)
             proxies = cfg.get("proxies", []) or []
             node_count = len(proxies)
-            content = decoded  # save decoded content
+            content = decoded
             parse_method = "base64_yaml"
             logger.info(f"[UPDATE:3] Base64 decode OK: {node_count} proxies")
         except Exception as b64_err:
-            # BOTH YAML and base64 failed — reject the subscription, do NOT save garbage
             logger.error(f"[UPDATE:FAIL] YAML failed ({yaml_err}), base64 failed ({b64_err}) — rejecting content")
             sub["last_updated"] = time.strftime("%Y-%m-%dT%H:%M:%S")
             sub["node_count"] = 0
@@ -1071,11 +1108,17 @@ async def update_subscription_now(sub_id: str):
     sub_file.write_text(content, encoding="utf-8")
     logger.info(f"[UPDATE:4] Saved {len(content)} chars to {sub_file} (method={parse_method})")
 
+    # 🔥 更新订阅元数据 - 不要覆盖 original_rules（修改记录）
+    # 只更新节点信息和状态
     sub["last_updated"] = time.strftime("%Y-%m-%dT%H:%M:%S")
     sub["node_count"] = node_count
     sub["status"] = "ok" if node_count > 0 else "error"
+    # ❌ 删除这行：sub["original_rules"] = original_rules
+    # ✅ 保留已有的修改记录不变
+
     save_json_file(SUBSCRIPTIONS_FILE, data)
-    logger.info(f"[UPDATE:5] Done. node_count={node_count}, status={sub['status']}")
+    logger.info(
+        f"[UPDATE:5] Done. node_count={node_count}, status={sub['status']}, kept original_rules modifications: {len(sub.get('original_rules', []))}")
 
     # If this subscription is currently active, re-apply config so the update takes effect immediately
     is_active = data.get("active_subscription") == sub_id
@@ -1085,12 +1128,104 @@ async def update_subscription_now(sub_id: str):
     return {"success": True, "node_count": node_count}
 
 
+def get_modified_original_rules(sub_id: str) -> list:
+    """
+    从订阅文件中提取原始规则，并应用 stored 的修改操作
+    返回修改后的原始规则列表（字符串格式，不带 '- ' 前缀）
+    """
+    import base64 as _base64
+
+    sub_file = CONFIG_DIR / f"sub_{sub_id}.yaml"
+    if not sub_file.exists():
+        return []
+
+    try:
+        content = sub_file.read_text(encoding="utf-8").strip()
+        # 尝试解码
+        try:
+            cfg = yaml.safe_load(content)
+        except Exception:
+            try:
+                decoded = _base64.b64decode(content).decode("utf-8")
+                cfg = yaml.safe_load(decoded)
+            except Exception:
+                return []
+
+        original_rules = cfg.get("rules", [])
+        if not original_rules:
+            return []
+
+        # 加载修改记录
+        subs_data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})
+        sub_meta = next((s for s in subs_data["subscriptions"] if s["id"] == sub_id), {})
+        modifications = sub_meta.get("original_rules", [])
+
+        # 构建结果列表
+        result = []
+
+        for rule in original_rules:
+            # 解析规则字符串，提取 payload
+            rule_str = rule
+            if isinstance(rule, str):
+                rule_str = rule
+            else:
+                # 如果是对象格式，转为字符串
+                if rule.get("payload"):
+                    rule_str = f"{rule['type']},{rule['payload']},{rule['proxy']}"
+                else:
+                    rule_str = f"{rule['type']},{rule['proxy']}"
+
+            # 清理前缀
+            if rule_str.startswith('- '):
+                rule_str = rule_str[2:]
+
+            # 提取 payload 用于匹配
+            parts = rule_str.split(',')
+            if len(parts) < 2:
+                result.append(rule_str)
+                continue
+
+            # payload 是中间部分
+            payload = parts[1] if len(parts) > 2 else ''
+            rule_type = parts[0]
+
+            # 检查是否有删除操作
+            is_deleted = False
+            for mod in modifications:
+                if mod.get("operation") == "delete" and mod.get("payload") == payload:
+                    is_deleted = True
+                    break
+
+            if is_deleted:
+                continue  # 跳过已删除的规则
+
+            # 检查是否有编辑操作
+            edited = False
+            for mod in modifications:
+                if mod.get("operation") == "edit" and mod.get("payload") == payload:
+                    # 应用编辑
+                    edited = True
+                    if mod.get("payload"):
+                        result.append(f"{mod['type']},{mod['payload']},{mod['proxy']}")
+                    else:
+                        result.append(f"{mod['type']},{mod['proxy']}")
+                    break
+
+            if not edited:
+                # 没有修改，保留原规则
+                result.append(rule_str)
+
+        return result
+
+    except Exception as e:
+        logger.error(f"[get_modified_original_rules] Error: {e}")
+        return []
+
+
 async def _apply_sub_to_mihomo(sub_id: str):
     """
     Read sub_{id}.yaml, decode (if base64), write to config.yaml, and restart mihomo.
-    Used both when activating a subscription and when re-applying an already-active one
-    after an update (so changes take effect immediately without needing a full re-activate).
-    Raises HTTPException on any failure.
+    Merges pre_rules, modified original_rules, and post_rules from subscription metadata.
     """
     import traceback
     sub_file = CONFIG_DIR / f"sub_{sub_id}.yaml"
@@ -1126,6 +1261,15 @@ async def _apply_sub_to_mihomo(sub_id: str):
             logger.error(f"[_APPLY] YAML failed ({yaml_err}), base64 also failed ({b64_err})")
             raise HTTPException(status_code=400, detail="订阅内容不是有效的 YAML 或 base64 格式")
 
+    # 加载订阅元数据
+    subs_data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})
+    sub_meta = next((s for s in subs_data["subscriptions"] if s["id"] == sub_id), {})
+    pre_rules = sub_meta.get("pre_rules", [])
+    post_rules = sub_meta.get("post_rules", [])
+
+    # 🔥 获取修改后的原始规则
+    modified_original_rules = get_modified_original_rules(sub_id)
+
     cfg_path = CONFIG_DIR / "config.yaml"
 
     # Apply settings from settings.json to subscription config
@@ -1133,15 +1277,61 @@ async def _apply_sub_to_mihomo(sub_id: str):
     sub_cfg = yaml.safe_load(content_to_write)
     if sub_cfg is None:
         sub_cfg = {}
+
+    # ─── 合并规则 ───────────────────────────────────────────────────────────────
+    new_rules = []
+
+    # 1. 添加前置规则 - 构建完整的规则字符串
+    for rule in pre_rules:
+        if isinstance(rule, dict):
+            if rule.get("payload"):
+                rule_str = f"{rule['type']},{rule['payload']},{rule['proxy']}"
+            else:
+                rule_str = f"{rule['type']},{rule['proxy']}"
+            new_rules.append(rule_str)
+        elif isinstance(rule, str):
+            rule_str = rule.strip()
+            if rule_str.startswith('- '):
+                rule_str = rule_str[2:]
+            new_rules.append(rule_str)
+
+    # 2. 添加原始规则（已应用修改）
+    for rule in modified_original_rules:
+        if isinstance(rule, str):
+            rule_str = rule.strip()
+            if rule_str.startswith('- '):
+                rule_str = rule_str[2:]
+            new_rules.append(rule_str)
+        elif isinstance(rule, dict):
+            if rule.get("payload"):
+                new_rules.append(f"{rule['type']},{rule['payload']},{rule['proxy']}")
+            else:
+                new_rules.append(f"{rule['type']},{rule['proxy']}")
+
+    # 3. 添加后置规则
+    for rule in post_rules:
+        if isinstance(rule, dict):
+            if rule.get("payload"):
+                rule_str = f"{rule['type']},{rule['payload']},{rule['proxy']}"
+            else:
+                rule_str = f"{rule['type']},{rule['proxy']}"
+            new_rules.append(rule_str)
+        elif isinstance(rule, str):
+            rule_str = rule.strip()
+            if rule_str.startswith('- '):
+                rule_str = rule_str[2:]
+            new_rules.append(rule_str)
+
+    sub_cfg["rules"] = new_rules
+    # ───────────────────────────────────────────────────────────────────────────
+
+    # 应用其他设置...
     sub_cfg["allow-lan"] = local.get("allow_lan", True)
     sub_cfg["ipv6"] = local.get("ipv6", False)
     sub_cfg["mode"] = local.get("mode", "rule")
     sub_cfg["log-level"] = local.get("log_level", "info")
-    # Force external-controller to match the GUI-configured Clash API address
     _api_base = local.get("clash_api_base", CLASH_API_BASE)
     _api_host = _api_base.replace("http://", "").replace("https://", "").rstrip("/")
-    # Use _force_quoted_str so the value is always written with quotes
-    # e.g. external-controller: '127.0.0.1:9090'  (avoids YAML treating : as a map separator)
     sub_cfg["external-controller"] = _force_quoted_str(_api_host)
     if local.get("proxy_mode") == "mixed":
         sub_cfg["mixed-port"] = local.get("mixed_port", 7890)
@@ -1152,14 +1342,12 @@ async def _apply_sub_to_mihomo(sub_id: str):
         sub_cfg["socks-port"] = local.get("socks_port", 7891)
         sub_cfg.pop("mixed-port", None)
 
-    # secret: only write if the user explicitly set one (UI value > env var)
     _secret = local.get("clash_secret", "") or CLASH_SECRET
     if _secret:
         sub_cfg["secret"] = _secret
     else:
         sub_cfg.pop("secret", None)
 
-    # Prevent subscription from injecting its own web UI path
     sub_cfg.pop("external-ui", None)
 
     content_to_write = yaml.dump(sub_cfg, allow_unicode=True, sort_keys=False)
@@ -1174,8 +1362,7 @@ async def _apply_sub_to_mihomo(sub_id: str):
         logger.error(f"[_APPLY] mihomo restart failed: {restart_err}")
         raise HTTPException(status_code=502, detail=f"重启 mihomo 失败: {restart_err}")
 
-    # Wait for mihomo REST API to be ready (up to 10s)
-    # Always use the UI-configured address, not the module-level constant
+    # Wait for mihomo REST API to be ready
     _api_base = local.get("clash_api_base", CLASH_API_BASE)
     logger.info(f"[_APPLY] Waiting for mihomo API at {_api_base} to be ready ...")
     for i in range(20):
@@ -1189,6 +1376,127 @@ async def _apply_sub_to_mihomo(sub_id: str):
             continue
     else:
         raise HTTPException(status_code=503, detail="mihomo REST API 未在 10 秒内就绪，请检查 mihomo 日志")
+
+
+@app.get("/api/subscriptions/{sub_id}/rules/full")
+async def get_full_rules(sub_id: str):
+    """
+    获取订阅的完整规则列表
+    返回: pre_rules, original_rules(已应用修改), post_rules
+    """
+    data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})
+    sub = next((s for s in data["subscriptions"] if s["id"] == sub_id), None)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    # 🔥 获取应用了修改的原始规则（用于显示）
+    modified_original_rules = get_modified_original_rules(sub_id)
+
+    return {
+        "pre_rules": sub.get("pre_rules", []),
+        "original_rules": modified_original_rules,  # 已应用修改的完整列表
+        "post_rules": sub.get("post_rules", [])
+    }
+
+
+class RulesSaveRequest(BaseModel):
+    pre_rules: list[dict] = []
+    original_rules: list[dict] = []
+    post_rules: list[dict] = []
+
+
+@app.post("/api/subscriptions/{sub_id}/rules/save")
+async def save_subscription_rules(sub_id: str, request: Request):
+    """
+    保存订阅的规则修改
+    original_rules 是修改记录，格式:
+    - 删除: {"operation": "delete", "payload": "example.com"}
+    - 编辑: {"operation": "edit", "type": "DOMAIN", "payload": "example.com", "proxy": "PROXY"}
+    """
+    try:
+        body = await request.json()
+        logger.info(f"[SAVE_RULES] Saving rules for subscription {sub_id}")
+
+        data = load_json_file(SUBSCRIPTIONS_FILE, {"subscriptions": []})
+        sub = next((s for s in data["subscriptions"] if s["id"] == sub_id), None)
+        if not sub:
+            raise HTTPException(status_code=404, detail="Subscription not found")
+
+        # 保存前置和后置规则
+        sub["pre_rules"] = body.get("pre_rules", [])
+        sub["post_rules"] = body.get("post_rules", [])
+
+        # 🔥 处理原始规则的修改记录
+        new_mods = body.get("original_rules", [])
+        existing_mods = sub.get("original_rules", [])
+
+        # 验证修改记录格式
+        validated_mods = []
+        for mod in new_mods:
+            if mod.get("operation") == "delete":
+                # 删除操作只需要 payload
+                if mod.get("payload"):
+                    validated_mods.append({
+                        "operation": "delete",
+                        "payload": mod["payload"]
+                    })
+            elif mod.get("operation") == "edit":
+                # 编辑操作需要完整的规则信息
+                if mod.get("type") and mod.get("payload") and mod.get("proxy"):
+                    validated_mods.append({
+                        "operation": "edit",
+                        "type": mod["type"],
+                        "payload": mod["payload"],
+                        "proxy": mod["proxy"]
+                    })
+
+        # 🔥 合并修改记录
+        merged_mods = []
+        new_delete_payloads = set()
+        new_edit_payloads = set()
+
+        # 收集新修改中的 payload
+        for mod in validated_mods:
+            if mod["operation"] == "delete":
+                new_delete_payloads.add(mod["payload"])
+            elif mod["operation"] == "edit":
+                new_edit_payloads.add(mod["payload"])
+
+        # 保留未被覆盖的旧修改记录
+        for mod in existing_mods:
+            payload = mod.get("payload")
+            if payload in new_delete_payloads or payload in new_edit_payloads:
+                continue
+            merged_mods.append(mod)
+
+        # 添加新修改记录
+        merged_mods.extend(validated_mods)
+
+        # 🔥 保存合并后的修改记录
+        sub["original_rules"] = merged_mods
+
+        save_json_file(SUBSCRIPTIONS_FILE, data)
+        logger.info(f"[SAVE_RULES] Rules saved, original_rules modifications: {len(merged_mods)}")
+
+        # 如果是激活的订阅，重新应用配置
+        if data.get("active_subscription") == sub_id:
+            try:
+                await _apply_sub_to_mihomo(sub_id)
+                logger.info(f"[SAVE_RULES] Successfully applied rules for subscription {sub_id}")
+            except Exception as e:
+                logger.warning(f"[SAVE_RULES] Failed to re-apply subscription: {e}")
+                return {
+                    "success": True,
+                    "warning": f"规则已保存但应用配置时出错: {str(e)}"
+                }
+
+        return {"success": True, "message": "规则已保存"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[SAVE_RULES] Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/subscriptions/{sub_id}/activate")
