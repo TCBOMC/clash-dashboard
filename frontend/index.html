@@ -14,7 +14,6 @@ a{color:inherit;text-decoration:none}
 button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 input,textarea,select{font:inherit;color:inherit;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;outline:none}
 input:focus,textarea:focus,select:focus{border-color:var(--accent)}
-/* 全局现代化滚动条 */
 *{scrollbar-width:auto;scrollbar-color:rgba(128,128,128,.75) transparent;}
 ::-webkit-scrollbar-track{background:transparent;}
 #app{display:flex;height:100vh}
@@ -26,7 +25,6 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 .logo-text-wrap{flex:1;min-width:0;padding-left:48px}
 .sidebar-collapse-btn{width:36px;height:36px;background:transparent;border:2px solid var(--border);border-radius:10px;color:var(--text2);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s;white-space:nowrap;position:absolute;left:8px;top:12px}
 .sidebar-collapse-btn:hover{border-color:var(--accent);color:var(--accent)}
-
 #sidebar.collapsed{width:52px}
 #sidebar.collapsed .logo-text-wrap,#sidebar.collapsed .nav-item .label,#sidebar.collapsed .sidebar-status span:not(.status-dot),#sidebar.collapsed .sidebar-logo .logo-text,#sidebar.collapsed .sidebar-logo .logo-sub{display:none}
 #sidebar.collapsed .sidebar-logo{padding:20px 16px 16px}
@@ -38,10 +36,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 .sidebar-nav .nav-section{padding:0 8px}
 .nav-section{margin-bottom:4px}
 .nav-section-title{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:6px 10px 4px;white-space:nowrap}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);transition:all .15s;margin-bottom:2px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);transition:all .15s;margin-bottom:2px;position:relative}
 .nav-item:hover{background:var(--surface);color:var(--text)}
 .nav-item.active{background:var(--accent-dim);color:var(--accent-light)}
-.nav-item{position:relative}
 .nav-item .icon{font-size:16px;width:20px;text-align:center;flex-shrink:0}
 .nav-item .label{font-size:13px;font-weight:500;white-space:nowrap}
 .nav-badge{margin-left:auto;background:var(--accent);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px}
@@ -52,19 +49,18 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 #main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
 .topbar{height:52px;background:var(--bg);display:flex;align-items:center;padding:0 20px;gap:16px;flex-shrink:0}
 .topbar-title{font-size:15px;font-weight:600;flex:1}
-.topbar-btn{padding:6px 16px;background:var(--surface2);border-radius:var(--radius-sm);color:var(--text2);font-size:13px;transition:all .15s;flex-shrink:0}
+.topbar-btn{padding:6px 16px;background:var(--surface2);border-radius:var(--radius-sm);color:var(--text2);font-size:13px;transition:all .15s;flex-shrink:0;border: 1px solid var(--border)}
 #topbar-actions{display:flex;align-items:center;gap:10px}
 .topbar-btn:hover{background:var(--surface3);color:var(--text)}
 .topbar-btn.primary{background:var(--accent);color:#fff}
 .topbar-btn.primary:hover{background:var(--accent-light)}
 .topbar-btn.danger{background:var(--red-dim);color:var(--red)}
-.page-content-wrapper {flex: 1;margin-right: 8px;margin-bottom: 8px;border: 1px solid var(--border);border-radius: 12px;overflow: hidden;}
-.page-content{height: 100%;overflow-y: auto;padding: 20px;background: var(--bg2);}
+.topbar-btn.success{background:var(--green-dim);color:var(--green)}
+.topbar-btn.success:hover{background:var(--green);color:#fff}
+.page-content-wrapper {flex:1;margin-right:8px;margin-bottom:8px;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.page-content{height:100%;overflow-y:auto;padding:20px;background:var(--bg2);}
 .page{display:none!important}
 .page.active{display:block!important}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);transition:all .15s;margin-bottom:2px}
-.nav-item:hover{background:var(--surface);color:var(--text)}
-.nav-item.active{background:var(--accent-dim);color:var(--accent-light)}
 .card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border)}
 .card-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
 .card-title{font-size:13px;font-weight:600}
@@ -113,7 +109,6 @@ canvas#trafficChart{width:100%;height:120px}
 .node-type{font-size:10px;color:var(--text2);margin-top:3px}
 .node-delay{font-size:11px;margin-top:4px}
 .node-delay.fast{color:var(--green)}.node-delay.medium{color:var(--yellow)}.node-delay.slow{color:var(--red)}.node-delay.timeout{color:var(--text3)}
-
 .node-speed-btn{position:absolute;bottom:8px;right:8px;background:none;border:none;cursor:pointer;font-size:12px;opacity:0;transition:opacity .15s;padding:2px 4px;color:var(--accent-light);line-height:1}
 .proxy-node.selected .node-speed-btn{color:var(--accent-light)}
 .sub-list{display:flex;flex-direction:column;gap:12px}
@@ -140,6 +135,9 @@ canvas#trafficChart{width:100%;height:120px}
 .badge-error{background:var(--red-dim);color:var(--red)}
 .badge-pending{background:var(--yellow-dim);color:var(--yellow)}
 .badge-active{background:var(--accent-dim);color:var(--accent-light)}
+.badge-pre{background:var(--green-dim);color:var(--green)}
+.badge-post{background:var(--blue-dim);color:var(--blue)}
+.badge-original{background:var(--surface3);color:var(--text2)}
 .rules-filter{display:flex;gap:10px;margin-bottom:16px}
 .rules-filter input{flex:1;min-width:80px}
 .rules-filter select{width:140px}
@@ -165,7 +163,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 .settings-section{margin-bottom:24px}
 .settings-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
 .settings-row{display:flex;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);gap:16px}
-. settings-row:last-child{border-bottom:none}
+.settings-row:last-child{border-bottom:none}
 .settings-label{flex:1}
 .settings-label .title{font-size:13px;color:var(--text)}
 .settings-label .desc{font-size:11px;color:var(--text2);margin-top:2px}
@@ -215,9 +213,9 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 .stat-value{font-size:15px}
 .stat-icon{font-size:13px;margin-bottom:2px}
 .node-speed-btn{opacity:1!important}
-.topbar-btn{padding:4px 10px;font-size:11px}
+.topbar-btn{padding:4px 10px;font-size:11px;border: 1px solid var(--border)}
 #topbar-actions{gap:6px}
-#topbar-actions .topbar-btn{padding:3px 5px!important;font-size:10px!important}
+#topbar-actions .topbar-btn{padding:3px 5px!important;font-size:10px!important;border:1px solid var(--border)!important}
 #topbar-actions .mode-btn{padding:2px 5px!important;font-size:10px!important}
 .topbar{height:48px;padding:0 12px}
 .proxy-group-header .topbar-btn{padding:2px 6px;font-size:10px}
@@ -254,117 +252,40 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 #conn-search{width:120px!important}
 .proxy-node:hover{border-color:var(--border)!important;background:var(--surface2)!important}
 }
-/* ============================================================
-   透明模式 - 侧栏 + 顶部标题栏透明，正文保留背景
-   ============================================================ */
 .transparent-mode{--_t-bg:transparent}
 .transparent-mode html,.transparent-mode body{background:transparent!important}
-
-/* 侧栏透明 */
-.transparent-mode #sidebar,
-.transparent-mode .sidebar-nav,
-.transparent-mode .sidebar-footer,
-.transparent-mode .sidebar-logo {
-    background: transparent !important;
-}
-/* 侧栏不额外加描边，只保留 footer 原有的上边框并淡化 */
-.transparent-mode .sidebar-footer {
-    border-top: 1px solid rgba(255,255,255,0.06) !important;
-}
-.transparent-mode .nav-item:hover {
-    background: rgba(255,255,255,0.2) !important;
-}
-.transparent-mode .nav-item.active {
-    background: rgba(124,92,252,0.5) !important;
-}
-
-/* 右侧整体背景透明 */
-.transparent-mode #main {
-    background: transparent !important;
-}
-
-/* 顶部栏透明，不加描边 */
-.transparent-mode .topbar {
-    background: transparent !important;
-}
-
-/* 正文区域保留背景色 */
-.transparent-mode .page-content {
-    background: var(--bg2) !important;
-}
-
-/* ============================================================
-   透明模式下深色主题：侧栏文字更白
-   ============================================================ */
+.transparent-mode #sidebar,.transparent-mode .sidebar-nav,.transparent-mode .sidebar-footer,.transparent-mode .sidebar-logo{background:transparent!important}
+.transparent-mode .sidebar-footer{border-top:1px solid rgba(255,255,255,0.06)!important}
+.transparent-mode .nav-item:hover{background:rgba(255,255,255,0.2)!important}
+.transparent-mode .nav-item.active{background:rgba(124,92,252,0.5)!important}
+.transparent-mode #main{background:transparent!important}
+.transparent-mode .topbar{background:transparent!important}
+.transparent-mode .page-content{background:var(--bg2)!important}
 [data-theme="dark"] .transparent-mode .sidebar-logo .logo-text,
 [data-theme="dark"] .transparent-mode .sidebar-logo .logo-sub,
 [data-theme="dark"] .transparent-mode .nav-item .label,
 [data-theme="dark"] .transparent-mode .nav-item .icon,
 [data-theme="dark"] .transparent-mode .nav-section-title,
 [data-theme="dark"] .transparent-mode .sidebar-status,
-[data-theme="dark"] .transparent-mode .sidebar-status span:not(.status-dot) {
-    color: rgba(255, 255, 255, 0.95) !important;
-}
-
-[data-theme="dark"] .transparent-mode .nav-item {
-    color: rgba(255, 255, 255, 0.8) !important;
-}
-
-[data-theme="dark"] .transparent-mode .nav-item:hover {
-    background: rgba(255, 255, 255, 0.05) !important;
-    color: rgba(255, 255, 255, 1) !important;
-}
-[data-theme="dark"] .transparent-mode .nav-item.active {
-    background: rgba(124, 92, 252, 0.5) !important;
-    color: #b8a5ff !important;
-}
-
-[data-theme="dark"] .transparent-mode .nav-badge {
-    background: var(--accent) !important;
-    color: #fff !important;
-}
-
-/* ============================================================
-   透明模式下浅色主题：侧栏文字更黑
-   ============================================================ */
+[data-theme="dark"] .transparent-mode .sidebar-status span:not(.status-dot){color:rgba(255,255,255,0.95)!important}
+[data-theme="dark"] .transparent-mode .nav-item{color:rgba(255,255,255,0.8)!important}
+[data-theme="dark"] .transparent-mode .nav-item:hover{background:rgba(255,255,255,0.05)!important;color:rgba(255,255,255,1)!important}
+[data-theme="dark"] .transparent-mode .nav-item.active{background:rgba(124,92,252,0.5)!important;color:#b8a5ff!important}
+[data-theme="dark"] .transparent-mode .nav-badge{background:var(--accent)!important;color:#fff!important}
 [data-theme="light"] .transparent-mode .sidebar-logo .logo-text,
 [data-theme="light"] .transparent-mode .sidebar-logo .logo-sub,
 [data-theme="light"] .transparent-mode .nav-item .label,
 [data-theme="light"] .transparent-mode .nav-item .icon,
 [data-theme="light"] .transparent-mode .nav-section-title,
 [data-theme="light"] .transparent-mode .sidebar-status,
-[data-theme="light"] .transparent-mode .sidebar-status span:not(.status-dot) {
-    color: rgba(0, 0, 0, 0.9) !important;
-}
-
-[data-theme="light"] .transparent-mode .nav-item {
-    color: rgba(0, 0, 0, 0.7) !important;
-}
-
-[data-theme="light"] .transparent-mode .nav-item:hover {
-    background: rgba(0, 0, 0, 0.05) !important;
-    color: rgba(0, 0, 0, 1) !important;
-}
-[data-theme="light"] .transparent-mode .nav-item.active {
-    background: rgba(107, 77, 224, 0.5) !important;
-    color: #4a2db8 !important;
-}
-
-[data-theme="light"] .transparent-mode .nav-badge {
-    background: var(--accent) !important;
-    color: #fff !important;
-}
-
-/* 浅色主题其他适配 */
-[data-theme="light"] .transparent-mode .sidebar-footer {
-    border-top: 1px solid rgba(0,0,0,0.06) !important;
-}
-[data-theme="light"] .transparent-mode .nav-item:hover {
-    background: rgba(0,0,0,0.05) !important;
-}
-[data-theme="light"] .transparent-mode .nav-item.active {
-    background: rgba(107,77,224,0.5) !important;
-}
+[data-theme="light"] .transparent-mode .sidebar-status span:not(.status-dot){color:rgba(0,0,0,0.9)!important}
+[data-theme="light"] .transparent-mode .nav-item{color:rgba(0,0,0,0.7)!important}
+[data-theme="light"] .transparent-mode .nav-item:hover{background:rgba(0,0,0,0.05)!important;color:rgba(0,0,0,1)!important}
+[data-theme="light"] .transparent-mode .nav-item.active{background:rgba(107,77,224,0.5)!important;color:#4a2db8!important}
+[data-theme="light"] .transparent-mode .nav-badge{background:var(--accent)!important;color:#fff!important}
+[data-theme="light"] .transparent-mode .sidebar-footer{border-top:1px solid rgba(0,0,0,0.06)!important}
+[data-theme="light"] .transparent-mode .nav-item:hover{background:rgba(0,0,0,0.05)!important}
+[data-theme="light"] .transparent-mode .nav-item.active{background:rgba(107,77,224,0.5)!important}
 </style>
 </head>
 <body>
@@ -500,14 +421,10 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 
             <!-- Rulesets -->
             <div class="page" id="page-rulesets">
-              <div class="flex items-center gap-8 mb-16">
-                <button class="btn btn-primary" onclick="addRule()">+ 新增规则</button>
-                <button class="btn btn-ghost" onclick="saveRuleConfig()">保存配置</button>
-                <button class="btn btn-ghost" onclick="showRawEditor()">编辑原始配置</button>
-              </div>
+              <!-- 按钮已移至 topbar，页面内不再重复 -->
               <div class="table-wrap">
                 <table>
-                  <thead><tr><th>类型</th><th>匹配值</th><th>代理目标</th><th>操作</th></tr></thead>
+                  <thead><tr><th style="width:80px">位置</th><th>类型</th><th>匹配值</th><th>代理目标</th><th style="width:120px">操作</th></tr></thead>
                   <tbody id="ruleset-tbody"></tbody>
                 </table>
               </div>
@@ -666,10 +583,23 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
     <div class="modal-header"><div class="modal-title">新增规则</div><button class="modal-close" onclick="closeModal('modal-add-rule')">✕</button></div>
     <div class="modal-body">
       <div class="form-row">
-        <div class="form-label">规则类型</div>
-        <select id="rule-form-type"><option>DOMAIN</option><option>DOMAIN-SUFFIX</option><option>DOMAIN-KEYWORD</option><option>IP-CIDR</option><option>GEOIP</option><option>PROCESS-NAME</option><option>MATCH</option></select>
+        <div class="form-label">规则位置</div>
+        <select id="rule-form-position">
+          <option value="pre">⬆ 前置规则（插入到最前面）</option>
+          <option value="post">⬇ 后置规则（追加到最后面）</option>
+        </select>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">
+          前置规则插入到规则列表最前，后置规则追加到末尾
+        </div>
       </div>
-      <div class="form-row"><div class="form-label">匹配值</div><input id="rule-form-payload" placeholder="例如：google.com" /></div>
+      <div class="form-row">
+        <div class="form-label">规则类型</div>
+        <select id="rule-form-type">
+          <option>DOMAIN</option><option>DOMAIN-SUFFIX</option><option>DOMAIN-KEYWORD</option>
+          <option>IP-CIDR</option><option>GEOIP</option><option>PROCESS-NAME</option><option>MATCH</option>
+        </select>
+      </div>
+      <div class="form-row"><div class="form-label">匹配值</div><input id="rule-form-payload" placeholder="例如：google.com（MATCH类型可留空）" /></div>
       <div class="form-row"><div class="form-label">代理目标</div><input id="rule-form-proxy" placeholder="例如：PROXY 或节点名称" /></div>
     </div>
     <div class="modal-footer">
@@ -693,17 +623,12 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 <div class="toast-container" id="toast-container"></div>
 
 <script>
-// ─── Global error / rejection catching (must be first) ───────────────────────
+// ─── Global error / rejection catching ───────────────────────────────────────
 window.addEventListener('error', function(e) {
-    console.error('[WINDOW ERROR]', e.message,
-        '\n  URL:', e.filename, '  line:', e.lineno, '  col:', e.colno,
-        '\n  stack:', e.error && e.error.stack);
-    // Don't prevent default — let the error propagate
+    console.error('[WINDOW ERROR]', e.message, '\n  stack:', e.error && e.error.stack);
 });
 window.addEventListener('unhandledrejection', function(e) {
-    console.error('[UNHANDLED REJECTION]',
-        '\n  reason:', e.reason,
-        '\n  stack:', e.reason && (e.reason.stack || new Error().stack));
+    console.error('[UNHANDLED REJECTION]', '\n  reason:', e.reason);
 });
 
 // ─── Theme management ─────────────────────────────────────────────────────────
@@ -718,51 +643,53 @@ function applyTheme(theme){
   localStorage.setItem('theme',theme);
   const t=getEffectiveTheme(theme);
   document.documentElement.setAttribute('data-theme',t);
-  // sync select in settings page
   const sel=document.getElementById('s-theme');
   if(sel) sel.value=theme;
 }
-// listen to system theme changes when in auto mode
 window.matchMedia('(prefers-color-scheme: light)').addEventListener('change',function(){
   const saved=localStorage.getItem('theme')||'auto';
   if(saved==='auto') applyTheme('auto');
 });
-// apply saved theme on load
 applyTheme(localStorage.getItem('theme')||'auto');
-// restore transparent background setting
 if(localStorage.getItem('transparent-bg')==='1'){document.body.classList.add('transparent-mode');const t=document.getElementById('s-transparent-bg');if(t)t.classList.add('on')}
 
 const API='';
 let currentPage='overview',logES=null,logPaused=false;
 let allRules=[],allConns=[],rulesPage=1;
 const RULES_PER_PAGE=50;
-let localRuleEdits=[];
 let trafficHistory={dl:new Array(60).fill(0),ul:new Array(60).fill(0)};
 let chartCtx=null,trafficTimer=null,prevDl=0,prevUl=0;
+
+// ─── 规则管理相关变量 ──────────────────────────────────────────────────────
+
+// ─── 规则管理相关变量 ──────────────────────────────────────────────────────
+let ruleData = {
+    pre_rules: [],           // 前置规则（完整对象）
+    original_rules: [],      // 已应用修改的完整原始规则列表（用于显示）
+    post_rules: []           // 后置规则（完整对象）
+};
+let currentActiveSubId = null;
+// 修改记录（用于保存时发送）
+let modifications = [];      // [{operation: "delete", payload: "xxx"}, {operation: "edit", ...}]
 
 // 侧边栏收起/展开
 function initSidebarCollapse(){
   const sidebar=document.getElementById('sidebar');
   const collapseBtn=document.getElementById('sidebar-collapse-btn');
   if(!sidebar||!collapseBtn)return;
-  const collapsedW=69; // 折叠宽度(px)
-  // 恢复保存的状态
   if(localStorage.getItem('sidebar-collapsed')==='true'){
     sidebar.classList.add('collapsed');
     collapseBtn.textContent='›';
   }
-  // 点击按钮：切换收起/展开
   collapseBtn.addEventListener('click',()=>{
     const isCollapsed=sidebar.classList.toggle('collapsed');
     collapseBtn.textContent=isCollapsed?'›':'‹';
     localStorage.setItem('sidebar-collapsed',isCollapsed?'true':'false');
   });
-  // 根据窗口宽度自动折叠/展开
   function autoCollapse(){
     const root=document.documentElement;
     const expandedW=parseInt(getComputedStyle(root).getPropertyValue('--sidebar-w'))||220;
     const winW=window.innerWidth;
-    // 当展开宽度 > 窗口1/4 时折叠
     if(expandedW>winW/4){
       if(!sidebar.classList.contains('collapsed')){
         sidebar.classList.add('collapsed');
@@ -790,7 +717,16 @@ function navigate(page){
   const acts=document.getElementById('topbar-actions');
   acts.innerHTML='';
   if(page==='subscriptions')acts.innerHTML=`<button class="topbar-btn primary" onclick="openModal('modal-add-sub')">+ 添加订阅</button>`;
-  if(page==='proxies')acts.innerHTML=`<div class="mode-selector" id="proxies-mode-bar"><button class="mode-btn" id="mode-rule" onclick="setMode('rule')">规则</button><button class="mode-btn" id="mode-global" onclick="setMode('global')">全局</button><button class="mode-btn" id="mode-direct" onclick="setMode('direct')">直连</button></div><button class="topbar-btn" onclick="loadProxies()">🔄 刷新</button><button class="topbar-btn" onclick="testAllDelay()">⚡ 测速</button>`;
+  if(page==='proxies')acts.innerHTML=`
+  <div class="mode-selector" id="proxies-mode-bar">
+    <button class="mode-btn" id="mode-rule" onclick="setMode('rule')" style="height:31px;box-sizing:border-box;padding:6px 16px;">规则</button>
+    <button class="mode-btn" id="mode-global" onclick="setMode('global')" style="height:31px;box-sizing:border-box;padding:6px 16px;">全局</button>
+    <button class="mode-btn" id="mode-direct" onclick="setMode('direct')" style="height:31px;box-sizing:border-box;padding:6px 16px;">直连</button>
+  </div>
+  <button class="topbar-btn" onclick="loadProxies()">🔄 刷新</button>
+  <button class="topbar-btn" onclick="testAllDelay()">⚡ 测速</button>
+`;
+  if(page==='rulesets')acts.innerHTML=`<button class="topbar-btn danger" onclick="resetRules()">🔄 重置</button><!-- <button class="topbar-btn" onclick="showRawEditor()">编辑原始配置</button> --><button class="topbar-btn" onclick="loadRulesets()">🔄 刷新</button><button class="topbar-btn success" onclick="saveCustomRules()">💾 保存</button><button class="topbar-btn primary" onclick="addRule()">+ 新增规则</button>`;
   clearInterval(trafficTimer);
   if(logES){logES.close();logES=null}
   if(page==='overview'){loadOverview();startTraffic()}
@@ -833,7 +769,6 @@ async function loadOverview(){
     document.getElementById('stat-dl').textContent=formatBytes(d.download_total);
     document.getElementById('stat-ul').textContent=formatBytes(d.upload_total);
     document.getElementById('stat-conns').textContent=d.active_connections;
-    // 根据端口模式更新端口显示
     const portLabel=document.getElementById('stat-port-label');
     const portValue=document.getElementById('stat-port');
     if(d.proxy_mode==='separated'){
@@ -971,7 +906,6 @@ async function selectNode(group,nodeName,el){
   }catch(e){toast('切换失败: '+e.message,'error')}
 }
 
-// 更新单个节点的延迟 UI（所有 DOM 副本）
 function _updateNodeDelay(nodeName,delay){
   const encoded=encodeURIComponent(nodeName);
   const els=document.querySelectorAll(`[data-delay-node="${encoded}"]`);
@@ -982,11 +916,9 @@ function _updateNodeDelay(nodeName,delay){
       const cls=delay<200?'fast':delay<500?'medium':'slow';
       el.className=`node-delay ${cls}`;el.textContent=delay+' ms';
     }
-    void el.offsetHeight;
   });
 }
 
-// 对一组节点名发起并发测速
 async function _speedTestNodes(nodeNames,label){
   const unique=[...new Set(nodeNames.filter(Boolean))];
   if(!unique.length)return;
@@ -1000,24 +932,18 @@ async function _speedTestNodes(nodeNames,label){
   toast(`${label} 测速完成`,'success');
 }
 
-// 测单个节点
 async function testNodeDelay(nodeName){
   await _speedTestNodes([nodeName],'节点 '+nodeName);
 }
-
-// 测指定代理组内的所有节点
 async function testGroupDelay(gname){
   const members=proxiesData[gname]?.all||[];
   await _speedTestNodes(members,'组 '+gname);
 }
-
-// 测全部
 async function testAllDelay(){
   const nodeEls=[...document.querySelectorAll('.proxy-node')];
   const uniqueNodes=[...new Set(nodeEls.map(el=>el.dataset.node).filter(Boolean))];
   await _speedTestNodes(uniqueNodes,'全量');
 }
-
 
 async function loadConnections(){
   try{
@@ -1100,7 +1026,6 @@ async function loadSubscriptions(silent){
   }catch(e){
     console.error('[loadSubscriptions ERROR] silent='+silent, e.message, e.stack);
     if(!silent){
-      // mihomo 重载期间后端可能短暂不可用，静默重试一次
       try{
         await new Promise(r=>setTimeout(r,2000));
         const d=await apiFetch('/api/subscriptions');
@@ -1127,7 +1052,7 @@ function renderSubscriptions(activeId){
     if(empty) empty.style.display='none';
     list.innerHTML=subsData.map(s=>`<div class="sub-card ${s.id===activeId?'active-sub':''}" id="subcard-${s.id}" onclick="activateSubByClick('${s.id}','${activeId||''}')"><div style="font-size:28px">📦</div><div class="sub-info"><div class="flex items-center gap-8"><div class="sub-name">${s.name}</div>${s.id===activeId?'<span class="badge badge-active">已激活</span>':''}<span class="badge badge-${s.status||'pending'}">${{ok:'正常',error:'错误',pending:'待更新'}[s.status]||s.status}</span></div><div class="sub-url">${s.url||'(无链接)'}</div><div class="sub-meta"><span class="sub-tag">🕐 ${s.last_updated?s.last_updated.replace('T',' '):'从未更新'}</span><span class="sub-tag">📡 ${s.node_count} 个节点</span>${s.auto_update?`<span class="sub-tag">🔄 自动更新 ${s.update_interval}分钟</span>`:''}</div></div><div class="sub-actions" onclick="event.stopPropagation()"><button class="btn btn-ghost" onclick="openEditSub('${s.id}')">修改</button><button class="btn btn-ghost" onclick="updateSub('${s.id}')">更新</button><button class="btn btn-danger" onclick="deleteSub('${s.id}')">删除</button></div></div>`).join('');
   } catch(e) {
-    console.error('[renderSubscriptions ERROR]', e.message, e.stack, 'subsData=', JSON.stringify(subsData).slice(0,500));
+    console.error('[renderSubscriptions ERROR]', e.message, e.stack);
     toast('渲染订阅列表失败: '+e.message, 'error');
   }
 }
@@ -1145,7 +1070,6 @@ async function submitAddSub(){
 
   if(!name){toast('请填写订阅名称','error');return}
 
-  // 文件优先，链接其次
   if(file){
     const formData=new FormData();
     formData.append('name',name);
@@ -1168,7 +1092,6 @@ async function submitAddSub(){
       toast('订阅已添加，正在处理...','success');
       await new Promise(r=>setTimeout(r,300));
       loadSubscriptions(true);
-      // 后台：如果是文件且没有活跃订阅，异步激活
       setTimeout(()=>autoActivateIfNeeded(newSub.id), 100);
     }catch(e){toast('添加失败: '+e.message,'error')}
   }else if(url){
@@ -1181,7 +1104,6 @@ async function submitAddSub(){
       toast('订阅已添加，正在更新...','success');
       await new Promise(r=>setTimeout(r,300));
       loadSubscriptions(true);
-      // 后台：异步更新并激活
       setTimeout(()=>asyncUpdateAndActivate(newSub.id), 100);
     }catch(e){toast('添加失败: '+e.message,'error')}
   }else{
@@ -1206,7 +1128,6 @@ async function autoActivateIfNeeded(subId){
   try{
     const d=await apiFetch('/api/subscriptions');
     if(!d.active_subscription){
-      // 没有活跃订阅，激活这个
       await apiFetch(`/api/subscriptions/${subId}/activate`,{method:'POST'});
       toast('订阅已激活','success');
       await new Promise(r=>setTimeout(r,500));
@@ -1268,7 +1189,6 @@ function openEditSub(id){
   document.getElementById('edit-sub-interval').value=sub.update_interval||1440;
   document.getElementById('edit-sub-file').value='';
   document.getElementById('edit-sub-file-status').textContent='';
-  // Set auto_update toggle state
   const toggle=document.getElementById('edit-sub-auto-update');
   if(sub.auto_update&&sub.url){
     toggle.classList.add('on');
@@ -1300,7 +1220,6 @@ async function submitEditSub(){
 
   try{
     if(file){
-      // Use file upload endpoint
       const formData=new FormData();
       formData.append('name',name);
       if(url) formData.append('url',url);
@@ -1314,7 +1233,6 @@ async function submitEditSub(){
       }
       toast('订阅已修改（配置文件已更新）','success');
     }else{
-      // Use JSON endpoint for metadata only
       const body={name};
       if(url!==undefined) body.url=url;
       body.auto_update=autoUpdate&&!!url;
@@ -1333,7 +1251,6 @@ async function updateSub(id){
   if(!sub){toast('订阅不存在','error');return}
 
   if(!sub.url){
-    // 无链接 → 打开文件选择器
     const input=document.getElementById('update-by-file-input');
     input.dataset.subId=id;
     input.click();
@@ -1344,23 +1261,20 @@ async function updateSub(id){
   try{
     const d=await apiFetch(`/api/subscriptions/${id}/update`,{method:'POST'});
     toast(`更新成功，共 ${d.node_count} 个节点`,'success');
-    // 等待 2 秒让 mihomo 完成重启，再重拉列表
     await new Promise(r=>setTimeout(r,2000));
     loadSubscriptions(true);
   }catch(e){toast('更新失败: '+e.message,'error')}
 }
 
-// 无链接订阅通过文件更新时触发此函数
 async function onUpdateByFileChange(input){
   const file=input.files[0];
   const id=input.dataset.subId;
   if(!file||!id) return;
-  input.value=''; // 清空以便下次同一文件能再次触发
+  input.value='';
 
   toast('正在通过文件更新订阅…','info');
   try{
     const formData=new FormData();
-    // 保留原名和链接，只更新文件
     const sub=subsData.find(s=>s.id===id);
     if(sub) formData.append('name',sub.name||'');
     if(sub&&sub.url) formData.append('url',sub.url);
@@ -1379,7 +1293,7 @@ async function onUpdateByFileChange(input){
 }
 
 async function activateSubByClick(id, activeId){
-  if(id===activeId) return; // 已激活，不重复执行
+  if(id===activeId) return;
   await activateSub(id);
 }
 
@@ -1387,7 +1301,6 @@ async function activateSub(id){
   try{
     await apiFetch(`/api/subscriptions/${id}/activate`,{method:'POST'});
     toast('订阅已激活，配置已重载','success');
-    // 等待 2 秒让 mihomo 完成重启，再重拉列表
     await new Promise(r=>setTimeout(r,2000));
     loadSubscriptions(true);
   }catch(e){toast('激活失败: '+e.message,'error')}
@@ -1403,53 +1316,494 @@ async function deleteSub(id){
   }catch(e){toast('删除失败','error')}
 }
 
-async function loadRulesets(){
-  try{const d=await apiFetch('/api/rules');localRuleEdits=(d.rules||[]).map(r=>({...r}));renderRuleset()}catch(e){}
+// ─── 规则管理（新） ──────────────────────────────────────────────────────────
+
+// 注意：ruleData 和 currentActiveSubId 已在文件顶部声明，不要重复声明！
+// 这里不需要再声明任何变量
+
+// ─── 解析规则字符串为对象 ──────────────────────────────────────────────────
+function parseRuleString(ruleStr) {
+    if (typeof ruleStr === 'string') {
+        let clean = ruleStr.trim();
+        if (clean.startsWith('- ')) {
+            clean = clean.substring(2);
+        }
+        const parts = clean.split(',').map(s => s.trim());
+
+        if (parts.length >= 2) {
+            const type = parts[0];
+
+            // 🔥 proxy 是倒数第二个，不是最后一个！
+            // 因为最后一个可能是额外参数（如 no-resolve）
+            let proxy = parts[parts.length - 2];  // 倒数第二个
+            let payload = '';
+
+            if (parts.length === 2) {
+                // DOMAIN,PROXY
+                proxy = parts[1];
+                payload = '';
+            } else if (parts.length === 3) {
+                // DOMAIN-SUFFIX,google.com,PROXY
+                payload = parts[1];
+                proxy = parts[2];
+            } else if (parts.length >= 4) {
+                // IP-CIDR,1.1.1.0/24,PROXY,no-resolve
+                // IP-CIDR6,2001::/48,PROXY,no-resolve
+                payload = parts[1];      // 第二个是 payload
+                proxy = parts[2];        // 第三个是 proxy
+                // 第四个及以后是额外参数（如 no-resolve），忽略
+            }
+
+            return { type, payload, proxy };
+        }
+        return { type: parts[0] || 'UNKNOWN', payload: '', proxy: '' };
+    }
+    return { ...ruleStr };
 }
 
-function renderRuleset(){
-  const tbody=document.getElementById('ruleset-tbody');
-  const empty=document.getElementById('ruleset-empty');
-  if(!localRuleEdits.length){empty.style.display='block';tbody.innerHTML='';return}
-  empty.style.display='none';
-  tbody.innerHTML=localRuleEdits.map((r,i)=>`<tr><td><select onchange="localRuleEdits[${i}].type=this.value" style="width:160px">${['DOMAIN','DOMAIN-SUFFIX','DOMAIN-KEYWORD','IP-CIDR','GEOIP','PROCESS-NAME','MATCH'].map(t=>`<option ${r.type===t?'selected':''}>${t}</option>`).join('')}</select></td><td><input value="${r.payload||''}" onchange="localRuleEdits[${i}].payload=this.value" style="width:220px" /></td><td><input value="${r.proxy||''}" onchange="localRuleEdits[${i}].proxy=this.value" style="width:140px" /></td><td><button class="btn btn-danger" style="padding:3px 10px;font-size:11px" onclick="deleteRuleRow(${i})">删除</button></td></tr>`).join('');
+// ─── 加载规则列表 ──────────────────────────────────────────────────────────
+async function loadRulesets() {
+    try {
+        const subsData = await apiFetch('/api/subscriptions');
+        const activeId = subsData.active_subscription;
+        currentActiveSubId = activeId;
+
+        if (!activeId) {
+            document.getElementById('ruleset-empty').style.display = 'block';
+            document.getElementById('ruleset-tbody').innerHTML = '';
+            toast('请先激活一个订阅', 'info');
+            return;
+        }
+
+        const data = await apiFetch(`/api/subscriptions/${activeId}/rules/full`);
+
+        // 直接使用 ruleData 存储数据
+        ruleData.pre_rules = (data.pre_rules || []).map(r =>
+            typeof r === 'string' ? parseRuleString(r) : r
+        );
+        ruleData.original_rules = (data.original_rules || []).map(r =>
+            typeof r === 'string' ? parseRuleString(r) : r
+        );
+        ruleData.post_rules = (data.post_rules || []).map(r =>
+            typeof r === 'string' ? parseRuleString(r) : r
+        );
+
+        // 清空修改记录
+        modifications = [];
+
+        renderRulesetTable();
+        document.getElementById('ruleset-empty').style.display = 'none';
+
+    } catch (e) {
+        console.error('[loadRulesets ERROR]', e);
+        toast('加载规则失败: ' + e.message, 'error');
+    }
 }
 
-function addRule(){openModal('modal-add-rule')}
+// ─── 渲染规则表格 ──────────────────────────────────────────────────────────
+function renderRulesetTable() {
+    const tbody = document.getElementById('ruleset-tbody');
+    const empty = document.getElementById('ruleset-empty');
 
-function submitAddRule(){
-  const type=document.getElementById('rule-form-type').value;
-  const payload=document.getElementById('rule-form-payload').value.trim();
-  const proxy=document.getElementById('rule-form-proxy').value.trim();
-  if(!proxy){toast('请填写代理目标','error');return}
-  localRuleEdits.unshift({type,payload,proxy});
-  closeModal('modal-add-rule');
-  renderRuleset();
-  toast('规则已添加（需保存才会生效）','info');
+    // 从 ruleData 构建所有规则列表
+    const preRules = ruleData.pre_rules || [];
+    const originalRules = ruleData.original_rules || [];
+    const postRules = ruleData.post_rules || [];
+
+    const allRules = [
+        ...preRules.map((r, idx) => ({ ...r, _position: 'pre', _idx: idx })),
+        ...originalRules.map((r, idx) => ({ ...r, _position: 'original', _idx: idx })),
+        ...postRules.map((r, idx) => ({ ...r, _position: 'post', _idx: idx }))
+    ];
+
+    if (!allRules.length) {
+        empty.style.display = 'block';
+        tbody.innerHTML = '';
+        return;
+    }
+    empty.style.display = 'none';
+
+    const typeOptions = [
+        'DOMAIN',
+        'DOMAIN-SUFFIX',
+        'DOMAIN-KEYWORD',
+        'IP-CIDR',
+        'IP-CIDR6',
+        'GEOIP',
+        'PROCESS-NAME',
+        'MATCH'
+    ];
+
+    tbody.innerHTML = allRules.map((r, globalIdx) => {
+        let positionLabel = '';
+        let badgeClass = '';
+        let bgColor = '';
+
+        if (r._position === 'pre') {
+            positionLabel = '前置';
+            badgeClass = 'badge-pre';
+            bgColor = 'rgba(70,211,154,0.08)';
+        } else if (r._position === 'post') {
+            positionLabel = '后置';
+            badgeClass = 'badge-post';
+            bgColor = 'rgba(78,205,196,0.08)';
+        } else {
+            positionLabel = '原始';
+            badgeClass = 'badge-original';
+            bgColor = 'transparent';
+        }
+
+        const type = r.type || 'UNKNOWN';
+        const payload = r.payload || '';
+        const proxy = r.proxy || '';
+
+        // 🔥 判断是否是原始规则
+        const isOriginal = r._position === 'original';
+
+        return `<tr data-position="${r._position}" data-globalidx="${globalIdx}" style="background:${bgColor}">
+            <td><span class="badge ${badgeClass}">${positionLabel}</span></td>
+            <td>
+                <select class="rule-type-select" ${isOriginal ? 'disabled' : ''} style="width:140px${isOriginal ? ';opacity:0.6;cursor:not-allowed' : ''}">
+                    ${typeOptions.map(t =>
+                        `<option value="${t}" ${type === t ? 'selected' : ''}>${t}</option>`
+                    ).join('')}
+                </select>
+                ${isOriginal ? `<input type="hidden" class="rule-type-select" value="${type}" />` : ''}
+            </td>
+            <td>
+                <input class="rule-payload" value="${escapeHtml(payload)}"
+                       ${isOriginal ? 'readonly' : ''}
+                       style="width:200px${isOriginal ? ';background:var(--surface3);opacity:0.7;cursor:not-allowed' : ''}"
+                       placeholder="匹配值（MATCH类型可留空）"
+                       title="${isOriginal ? '原始规则不可修改' : ''}" />
+            </td>
+            <td>
+                <input class="rule-proxy" value="${escapeHtml(proxy)}"
+                       style="width:140px"
+                       placeholder="代理目标" />
+            </td>
+            <td>
+                <button class="btn btn-danger" style="padding:3px 10px;font-size:11px" onclick="deleteRuleRow(this)">删除</button>
+            </td>
+        </tr>`;
+    }).join('');
 }
 
-function deleteRuleRow(idx){localRuleEdits.splice(idx,1);renderRuleset()}
-
-async function saveRuleConfig(){
-  try{
-    const d=await apiFetch('/api/config/raw');
-    let content=d.content||'';
-    const rulesBlock=localRuleEdits.map(r=>r.payload?`  - ${r.type},${r.payload},${r.proxy}`:`  - ${r.type},${r.proxy}`).join('\n');
-    if(content.includes('\nrules:')){content=content.replace(/\nrules:[\s\S]*?(\n\w|$)/,`\nrules:\n${rulesBlock}\n`)}
-    else{content+=`\nrules:\n${rulesBlock}\n`}
-    await apiFetch('/api/config/raw',{method:'POST',body:JSON.stringify({content})});
-    toast('规则已保存并重载','success');
-  }catch(e){toast('保存失败: '+e.message,'error')}
+// ─── 辅助：HTML 转义，防止 XSS ──────────────────────────────────────────
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 }
 
-async function showRawEditor(){
-  try{const d=await apiFetch('/api/config/raw');document.getElementById('raw-config-editor').value=d.content||'';openModal('modal-raw-config')}catch(e){toast('加载配置失败','error')}
+// ─── 删除规则行（点击时立即记录删除操作） ──────────────────────────────
+function deleteRuleRow(btn) {
+    const row = btn.closest('tr');
+    if (!row) return;
+
+    const position = row.dataset.position;
+    const label = position === 'pre' ? '前置' : position === 'post' ? '后置' : '原始';
+
+    if (!confirm(`确定要删除这条${label}规则吗？`)) return;
+
+    // 🔥 获取规则信息
+    const typeSelect = row.querySelector('.rule-type-select');
+    const payloadInput = row.querySelector('.rule-payload');
+    const proxyInput = row.querySelector('.rule-proxy');
+
+    const type = typeSelect ? typeSelect.value : '';
+    const payload = payloadInput ? payloadInput.value.trim() : '';
+    const proxy = proxyInput ? proxyInput.value.trim() : '';
+
+    // 🔥 根据位置处理
+    if (position === 'pre') {
+        // 前置规则：直接从 ruleData.pre_rules 删除
+        const globalIdx = parseInt(row.dataset.globalidx);
+        if (globalIdx < ruleData.pre_rules.length) {
+            ruleData.pre_rules.splice(globalIdx, 1);
+        }
+    } else if (position === 'post') {
+        // 后置规则：直接从 ruleData.post_rules 删除
+        const preLen = ruleData.pre_rules.length;
+        const origLen = ruleData.original_rules.length;
+        const postIdx = parseInt(row.dataset.globalidx) - preLen - origLen;
+        if (postIdx >= 0 && postIdx < ruleData.post_rules.length) {
+            ruleData.post_rules.splice(postIdx, 1);
+        }
+    } else {
+        // 🔥 原始规则：记录删除操作到 modifications
+        modifications.push({
+            operation: 'delete',
+            payload: payload,
+            type: type,
+            proxy: proxy
+        });
+        console.log('[deleteRuleRow] 记录删除操作:', payload);
+    }
+
+    // 🔥 从 DOM 移除行
+    row.remove();
+
+    // 重新编号
+    renumberRows();
+
+    toast('规则已删除，点击"保存配置"生效', 'info');
 }
 
-async function submitRawConfig(){
-  const content=document.getElementById('raw-config-editor').value;
-  try{await apiFetch('/api/config/raw',{method:'POST',body:JSON.stringify({content})});closeModal('modal-raw-config');toast('配置已保存并重载','success')}catch(e){toast('保存失败: '+e.message,'error')}
+// ─── 重新编号行 ──────────────────────────────────────────────────────────
+function renumberRows() {
+    const rows = document.querySelectorAll('#ruleset-tbody tr');
+    rows.forEach((row, index) => {
+        row.dataset.globalidx = index;
+    });
 }
+
+// ─── 添加规则 ──────────────────────────────────────────────────────────────
+function addRule() {
+    if (!currentActiveSubId) {
+        toast('请先激活一个订阅', 'error');
+        return;
+    }
+    document.getElementById('rule-form-position').value = 'pre';
+    document.getElementById('rule-form-type').value = 'DOMAIN';
+    document.getElementById('rule-form-payload').value = '';
+    document.getElementById('rule-form-proxy').value = '';
+    openModal('modal-add-rule');
+}
+
+function submitAddRule() {
+    const position = document.getElementById('rule-form-position').value;
+    const type = document.getElementById('rule-form-type').value;
+    const payload = document.getElementById('rule-form-payload').value.trim();
+    const proxy = document.getElementById('rule-form-proxy').value.trim();
+
+    if (!proxy) {
+        toast('请填写代理目标', 'error');
+        return;
+    }
+
+    const newRule = { type, proxy };
+    if (payload) newRule.payload = payload;
+
+    if (position === 'pre') {
+        ruleData.pre_rules.unshift(newRule);
+    } else if (position === 'post') {
+        ruleData.post_rules.push(newRule);
+    } else {
+        toast('不能直接添加到原始规则，请选择前置或后置', 'error');
+        return;
+    }
+
+    closeModal('modal-add-rule');
+    renderRulesetTable();
+    toast('规则已添加，点击"保存配置"生效', 'success');
+}
+
+// ─── 从 DOM 读取所有规则 ──────────────────────────────────────────────────
+function readRulesFromDOM() {
+    const rows = document.querySelectorAll('#ruleset-tbody tr');
+    const preRules = [];
+    const postRules = [];
+    const modificationsList = [];
+
+    // 🔥 构建当前 DOM 中原始规则的索引（用于检测编辑）
+    const domOriginalRules = [];
+
+    rows.forEach(row => {
+        const position = row.dataset.position;
+        const typeSelect = row.querySelector('.rule-type-select');
+        const payloadInput = row.querySelector('.rule-payload');
+        const proxyInput = row.querySelector('.rule-proxy');
+
+        if (!typeSelect || !payloadInput || !proxyInput) return;
+
+        const type = typeSelect.value;
+        const payload = payloadInput.value.trim();
+        const proxy = proxyInput.value.trim();
+
+        if (!proxy) return;
+
+        const ruleObj = { type, payload, proxy };
+        const ruleString = buildRuleString(ruleObj);
+
+        if (position === 'pre') {
+            preRules.push(ruleObj);
+        } else if (position === 'post') {
+            postRules.push(ruleObj);
+        } else {
+            // 原始规则：检查是否有修改
+            domOriginalRules.push({ ruleObj, ruleString });
+        }
+    });
+
+    // 🔥 检查原始规则是否有编辑
+    const originalMap = new Map();
+    ruleData.original_rules.forEach(orig => {
+        const key = buildRuleString(orig);
+        originalMap.set(key, orig);
+    });
+
+    domOriginalRules.forEach(({ ruleObj, ruleString }) => {
+        // 如果 DOM 中的规则与原始不一致，记录编辑
+        if (!originalMap.has(ruleString)) {
+            // 检查是否是基于某条原始规则修改的
+            // 用 payload 匹配，因为 payload 是唯一标识
+            const origMatch = ruleData.original_rules.find(orig => orig.payload === ruleObj.payload);
+            if (origMatch) {
+                // 同一条规则，内容变了 → 编辑
+                modificationsList.push({
+                    operation: 'edit',
+                    payload: ruleObj.payload,
+                    type: ruleObj.type,
+                    proxy: ruleObj.proxy
+                });
+            } else {
+                // 可能是新增的？但原始规则不应该新增
+                // 当作编辑处理
+                modificationsList.push({
+                    operation: 'edit',
+                    payload: ruleObj.payload,
+                    type: ruleObj.type,
+                    proxy: ruleObj.proxy
+                });
+            }
+        }
+        // 如果完全匹配，不记录
+    });
+
+    // 🔥 注意：删除操作已经在 deleteRuleRow 中记录了
+    // 这里不需要再检测删除
+
+    return { preRules, originalRules: modificationsList, postRules };
+}
+
+// ─── 辅助：构建规则字符串 ──────────────────────────────────────────────────
+function buildRuleString(rule) {
+    if (!rule) return '';
+    // 注意：原始规则可能有额外参数（如 no-resolve），但我们在 UI 中不显示它
+    // 所以构建时只用 type, payload, proxy
+    if (rule.payload && rule.payload.trim()) {
+        return `${rule.type},${rule.payload},${rule.proxy}`;
+    }
+    return `${rule.type},${rule.proxy}`;
+}
+
+// ─── 保存规则配置 ──────────────────────────────────────────────────────────
+async function saveCustomRules() {
+    if (!currentActiveSubId) {
+        toast('没有激活的订阅', 'error');
+        return;
+    }
+
+    try {
+        // 🔥 从 DOM 读取最新数据（编辑 + 前置 + 后置）
+        const { preRules, originalRules: editModifications, postRules } = readRulesFromDOM();
+
+        // 🔥 合并修改记录：编辑记录 + 删除记录
+        // 删除记录已经存在 modifications 中（来自 deleteRuleRow）
+        // 编辑记录来自 readRulesFromDOM
+        const allModifications = [...modifications, ...editModifications];
+
+        console.log('[saveCustomRules] 删除记录:', JSON.stringify(modifications, null, 2));
+        console.log('[saveCustomRules] 编辑记录:', JSON.stringify(editModifications, null, 2));
+        console.log('[saveCustomRules] 合并后:', JSON.stringify(allModifications, null, 2));
+
+        const body = {
+            pre_rules: preRules,
+            original_rules: allModifications,  // 合并所有修改
+            post_rules: postRules
+        };
+
+        const response = await fetch(`/api/subscriptions/${currentActiveSubId}/rules/save`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            let errorMsg = `HTTP ${response.status}`;
+            try {
+                const errData = await response.json();
+                if (errData.detail) {
+                    if (Array.isArray(errData.detail)) {
+                        errorMsg = errData.detail.map(e =>
+                            `${e.loc.join('.')}: ${e.msg}`
+                        ).join('; ');
+                    } else if (typeof errData.detail === 'string') {
+                        errorMsg = errData.detail;
+                    }
+                }
+            } catch (e) {}
+            throw new Error(errorMsg);
+        }
+
+        const result = await response.json();
+        toast(result.warning || '规则修改已保存并应用', result.warning ? 'warning' : 'success');
+
+        // 🔥 清空修改记录并重新加载
+        modifications = [];
+        await loadRulesets();
+
+    } catch (e) {
+        console.error('[saveCustomRules ERROR]', e);
+        toast('保存失败: ' + (e.message || '未知错误'), 'error');
+    }
+}
+
+// ─── 重置规则 ──────────────────────────────────────────────────────────────
+async function resetRules() {
+    if (!currentActiveSubId) {
+        toast('没有激活的订阅', 'error');
+        return;
+    }
+
+    if (!confirm('确定要重置所有规则修改吗？这将清除所有前置规则、后置规则和对原始规则的修改，恢复到订阅的原始配置。')) {
+        return;
+    }
+
+    try {
+        toast('正在重置规则...', 'info');
+
+        const response = await fetch(`/api/subscriptions/${currentActiveSubId}/rules/reset`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+            let errorMsg = `HTTP ${response.status}`;
+            try {
+                const errData = await response.json();
+                if (errData.detail) {
+                    errorMsg = typeof errData.detail === 'string' ? errData.detail : JSON.stringify(errData.detail);
+                }
+            } catch (e) {}
+            throw new Error(errorMsg);
+        }
+
+        const result = await response.json();
+        toast(result.warning || '规则已重置，恢复到原始配置', result.warning ? 'warning' : 'success');
+
+        // 清空修改记录并重新加载
+        modifications = [];
+        await loadRulesets();
+
+    } catch (e) {
+        console.error('[resetRules ERROR]', e);
+        toast('重置失败: ' + (e.message || '未知错误'), 'error');
+    }
+}
+
+// ─── 辅助函数：调试 ──────────────────────────────────────────────────────
+function debugRuleData() {
+    console.log('=== Rule Data Debug ===');
+    console.log('pre_rules:', ruleData.pre_rules.length, JSON.stringify(ruleData.pre_rules, null, 2));
+    console.log('original_rules:', ruleData.original_rules.length, JSON.stringify(ruleData.original_rules, null, 2));
+    console.log('post_rules:', ruleData.post_rules.length, JSON.stringify(ruleData.post_rules, null, 2));
+    console.log('modifications:', modifications.length, JSON.stringify(modifications, null, 2));
+    console.log('=======================');
+}parseRuleString
+// ───────────────────────────────────
 
 function setProxyMode(mode){
   document.getElementById('mode-mixed').classList.toggle('active',mode==='mixed');
@@ -1474,7 +1828,6 @@ async function loadSettings(){
 }
 
 async function saveSettings(){
-  const modeBar=document.getElementById('proxy-mode-bar');
   const isMixed=document.getElementById('mode-mixed').classList.contains('active');
   const body={
     proxy_mode:isMixed?'mixed':'separated',
@@ -1499,6 +1852,15 @@ function toggleTransparentBg(){
 }
 function setToggle(id,val){const el=document.getElementById(id);if(el)val?el.classList.add('on'):el.classList.remove('on')}
 
+async function showRawEditor(){
+  try{const d=await apiFetch('/api/config/raw');document.getElementById('raw-config-editor').value=d.content||'';openModal('modal-raw-config')}catch(e){toast('加载配置失败','error')}
+}
+
+async function submitRawConfig(){
+  const content=document.getElementById('raw-config-editor').value;
+  try{await apiFetch('/api/config/raw',{method:'POST',body:JSON.stringify({content})});closeModal('modal-raw-config');toast('配置已保存并重载','success')}catch(e){toast('保存失败: '+e.message,'error')}
+}
+
 function toast(msg,type='info'){
   const container=document.getElementById('toast-container');
   const icons={success:'✅',error:'❌',info:'ℹ️'};
@@ -1516,7 +1878,6 @@ function formatBytes(bytes){
   return(bytes/Math.pow(k,i)).toFixed(i>0?1:0)+' '+sizes[i];
 }
 
-let subsRefreshTimer=null;
 document.addEventListener('DOMContentLoaded',()=>{
   initSidebarCollapse();
   const lastPage=localStorage.getItem('clash_last_page')||'overview';
@@ -1524,7 +1885,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   setInterval(async()=>{
     try{const d=await apiFetch('/api/health');const ok=d.status==='ok';document.getElementById('status-dot').className='status-dot'+(ok?'':' offline');document.getElementById('status-text').textContent=ok?(d.clash?.version?.startsWith('v')?d.clash.version:`v${d.clash?.version||''}`):'未连接'}catch{document.getElementById('status-dot').className='status-dot offline'}
   },10000);
-  // Auto-refresh subscriptions list every 30 seconds when on subscriptions page
   setInterval(()=>{
     if(currentPage==='subscriptions'){
       loadSubscriptions(true);
