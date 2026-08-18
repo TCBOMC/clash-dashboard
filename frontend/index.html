@@ -52,14 +52,22 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 .topbar-btn{padding:6px 16px;background:var(--surface2);border-radius:var(--radius-sm);color:var(--text2);font-size:13px;transition:all .15s;flex-shrink:0;border: 1px solid var(--border)}
 #topbar-actions{display:flex;align-items:center;gap:10px}
 .topbar-btn:hover{background:var(--surface3);color:var(--text)}
-.topbar-btn.primary{background:var(--accent);background:color-mix(in srgb, var(--accent) 90%, transparent);color:#fff}
+.topbar-btn.primary{background:var(--accent);background:color-mix(in srgb, var(--accent) 100%, transparent);color:#fff}
 .topbar-btn.primary:hover{background:var(--accent-light)}
-.topbar-btn.danger{background: var(--red);background:color-mix(in srgb, var(--red) 40%, transparent); color:var(--text)}
+.topbar-btn.danger{background: var(--red);background:color-mix(in srgb, var(--red) 70%, transparent); color:var(--text)}
 .topbar-btn.danger:hover{background:var(--red)}
-.topbar-btn.success{background: var(--green);background:color-mix(in srgb, var(--green) 40%, transparent); color:var(--text)}
+.topbar-btn.success{background: var(--green);background:color-mix(in srgb, var(--green) 70%, transparent); color:var(--text)}
 .topbar-btn.success:hover{background:var(--green)}
-.topbar-btn.refresh {background: var(--surface2);background: color-mix(in srgb, var(--surface2) 70%, transparent); color:var(--text)}
-.topbar-btn.refresh:hover {background: var(--surface2)}
+.topbar-btn.normal {background: var(--surface2);background: color-mix(in srgb, var(--surface2) 100%, transparent); color:var(--text)}
+.topbar-btn.normal:hover {background: var(--surface3)}
+.transparent-mode .topbar-btn.primary{background:var(--accent);background:color-mix(in srgb, var(--accent) 40%, transparent);color:#fff}
+.transparent-mode .topbar-btn.primary:hover{background:var(--accent-light)}
+.transparent-mode .topbar-btn.danger{background: var(--red);background:color-mix(in srgb, var(--red) 40%, transparent); color:var(--text)}
+.transparent-mode .topbar-btn.danger:hover{background:var(--red)}
+.transparent-mode .topbar-btn.success{background: var(--green);background:color-mix(in srgb, var(--green) 40%, transparent); color:var(--text)}
+.transparent-mode .topbar-btn.success:hover{background:var(--green)}
+.transparent-mode .topbar-btn.normal {background: var(--surface2);background: color-mix(in srgb, var(--surface2) 40%, transparent); color:var(--text)}
+.transparent-mode .topbar-btn.normal:hover {background: var(--surface3)}
 .page-content-wrapper {flex:1;margin-right:8px;margin-bottom:8px;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
 .page-content{height:100%;overflow-y:auto;padding:20px;background:var(--bg2);}
 .page{display:none!important}
@@ -84,11 +92,14 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 canvas#trafficChart{width:100%;height:120px}
 .gap-16{gap:16px}
 .mode-selector{display:flex;gap:0}
-.mode-btn{padding:6px 16px;border:1px solid var(--border);border-left-width:1px;border-right-width:0;background:var(--surface2);color:var(--text2);font-size:13px;cursor:pointer;transition:all .15s;outline:none;line-height:1.4}
+.mode-btn{padding:6px 16px;border:1px solid var(--border);border-left-width:1px;border-right-width:0;background: var(--surface2);background: color-mix(in srgb, var(--surface2) 100%, transparent);color:var(--text);font-size:13px;cursor:pointer;transition:all .15s;outline:none;line-height:1.4}
 .mode-btn:first-child{border-left-width:1px;border-radius:var(--radius-sm) 0 0 var(--radius-sm)}
 .mode-btn:last-child{border-right-width:1px;border-radius:0 var(--radius-sm) var(--radius-sm) 0}
 .mode-btn:hover{background:var(--surface3);color:var(--text)}
 .mode-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.transparent-mode .mode-btn{background: var(--surface2);background: color-mix(in srgb, var(--surface2) 40%, transparent);color:var(--text)}
+.transparent-mode .mode-btn:hover{background:var(--surface3);color:var(--text)}
+.transparent-mode .mode-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .proxy-group-list{display:flex;flex-direction:column;gap:16px}
 .proxy-group-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
 .proxy-group-header{display:flex;align-items:center;justify-content:flex-start;gap:12px;flex-wrap:wrap;padding:14px 16px;background:var(--surface2);border-bottom:1px solid var(--border);cursor:pointer;user-select:none;position:relative}
@@ -253,8 +264,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
 .nav-item .label{font-size:12px}
 .sidebar-status{padding:6px 8px;font-size:11px}
 #conn-search{width:120px!important}
-.proxy-node:hover{border-color:var(--border)!important;background:var(--surface2)!important}
-}
+.proxy-node:hover{border-color:var(--border)!important;background:var(--surface2)!important}  }
 .transparent-mode{--_t-bg:transparent}
 .transparent-mode html,.transparent-mode body{background:transparent!important}
 .transparent-mode #sidebar,.transparent-mode .sidebar-nav,.transparent-mode .sidebar-footer,.transparent-mode .sidebar-logo{background:transparent!important}
@@ -373,7 +383,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--text)}
             <div class="page" id="page-connections">
               <div class="flex items-center justify-between mb-16">
                 <input id="conn-search" placeholder="搜索连接…" style="width:220px" oninput="filterConnections()" />
-                <button class="topbar-btn danger" onclick="closeAllConns()">关闭全部</button>
+                <button class="btn btn-danger" onclick="closeAllConns()">关闭全部</button>
               </div>
               <div class="table-wrap">
                 <table>
@@ -746,10 +756,10 @@ function navigate(page){
     <button class="mode-btn" id="mode-global" onclick="setMode('global')" style="height:31px;box-sizing:border-box;padding:6px 16px;">全局</button>
     <button class="mode-btn" id="mode-direct" onclick="setMode('direct')" style="height:31px;box-sizing:border-box;padding:6px 16px;">直连</button>
   </div>
-  <button class="topbar-btn" onclick="loadProxies()">🔄 刷新</button>
-  <button class="topbar-btn" onclick="testAllDelay()">⚡ 测速</button>
+  <button class="topbar-btn normal" onclick="loadProxies()">🔄 刷新</button>
+  <button class="topbar-btn normal" onclick="testAllDelay()">⚡ 测速</button>
 `;
-  if(page==='rulesets')acts.innerHTML=`<button class="topbar-btn danger" onclick="resetRules()">🔄 重置</button><!-- <button class="topbar-btn" onclick="showRawEditor()">编辑原始配置</button> --><button class="topbar-btn refresh" onclick="loadRulesets()">🔄 刷新</button><button class="topbar-btn success" onclick="saveCustomRules()">💾 保存</button><button class="topbar-btn primary" onclick="addRule()">+ 新增规则</button>`;
+  if(page==='rulesets')acts.innerHTML=`<button class="topbar-btn danger" onclick="resetRules()">🔄 重置</button><!-- <button class="topbar-btn" onclick="showRawEditor()">编辑原始配置</button> --><button class="topbar-btn normal" onclick="loadRulesets()">🔄 刷新</button><button class="topbar-btn success" onclick="saveCustomRules()">💾 保存</button><button class="topbar-btn primary" onclick="addRule()">+ 新增规则</button>`;
   clearInterval(trafficTimer);
   if(logES){logES.close();logES=null}
   if(page==='overview'){loadOverview();startTraffic()}
