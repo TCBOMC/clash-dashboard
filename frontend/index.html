@@ -52,11 +52,14 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 .topbar-btn{padding:6px 16px;background:var(--surface2);border-radius:var(--radius-sm);color:var(--text2);font-size:13px;transition:all .15s;flex-shrink:0;border: 1px solid var(--border)}
 #topbar-actions{display:flex;align-items:center;gap:10px}
 .topbar-btn:hover{background:var(--surface3);color:var(--text)}
-.topbar-btn.primary{background:var(--accent);color:#fff}
+.topbar-btn.primary{background:var(--accent);background:color-mix(in srgb, var(--accent) 90%, transparent);color:#fff}
 .topbar-btn.primary:hover{background:var(--accent-light)}
-.topbar-btn.danger{background:var(--red-dim);color:var(--red)}
-.topbar-btn.success{background:var(--green-dim);color:var(--green)}
-.topbar-btn.success:hover{background:var(--green);color:#fff}
+.topbar-btn.danger{background: var(--red);background:color-mix(in srgb, var(--red) 40%, transparent); color:var(--text)}
+.topbar-btn.danger:hover{background:var(--red)}
+.topbar-btn.success{background: var(--green);background:color-mix(in srgb, var(--green) 40%, transparent); color:var(--text)}
+.topbar-btn.success:hover{background:var(--green)}
+.topbar-btn.refresh {background: var(--surface2);background: color-mix(in srgb, var(--surface2) 70%, transparent); color:var(--text)}
+.topbar-btn.refresh:hover {background: var(--surface2)}
 .page-content-wrapper {flex:1;margin-right:8px;margin-bottom:8px;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
 .page-content{height:100%;overflow-y:auto;padding:20px;background:var(--bg2);}
 .page{display:none!important}
@@ -631,6 +634,12 @@ window.addEventListener('unhandledrejection', function(e) {
     console.error('[UNHANDLED REJECTION]', '\n  reason:', e.reason);
 });
 
+// 转换 hex 到 rgb
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : null;
+}
+
 // ─── Theme management ─────────────────────────────────────────────────────────
 function getEffectiveTheme(theme){
   if(theme==='auto'){
@@ -664,13 +673,27 @@ let chartCtx=null,trafficTimer=null,prevDl=0,prevUl=0;
 
 // ─── 规则管理相关变量 ──────────────────────────────────────────────────────
 let ruleData = {
-    pre_rules: [],           // 前置规则（完整对象）
-    original_rules: [],      // 已应用修改的完整原始规则列表（用于显示）
-    post_rules: []           // 后置规则（完整对象）
+    pre_rules: [],           // 前置规则（当前编辑状态）
+    original_rules: [],      // 原始规则（服务器加载的原始状态，始终不直接修改）
+    post_rules: []           // 后置规则（当前编辑状态）
 };
+
 let currentActiveSubId = null;
-// 修改记录（用于保存时发送）
-let modifications = [];      // [{operation: "delete", payload: "xxx"}, {operation: "edit", ...}]
+
+// 原始规则的修改记录
+//
+// 这里只记录 original_rules 的：
+//   1. edit
+//   2. delete
+//
+// pre_rules / post_rules 不进入这里，直接修改 ruleData。
+//
+// 示例：
+// [
+//     { operation: 'edit', payload: 'google.com', type: 'DOMAIN-SUFFIX', proxy: 'PROXY' },
+//     { operation: 'delete', payload: 'example.com', type: 'DOMAIN', proxy: 'DIRECT' }
+// ]
+let original_modifications = [];
 
 // 侧边栏收起/展开
 function initSidebarCollapse(){
@@ -726,7 +749,7 @@ function navigate(page){
   <button class="topbar-btn" onclick="loadProxies()">🔄 刷新</button>
   <button class="topbar-btn" onclick="testAllDelay()">⚡ 测速</button>
 `;
-  if(page==='rulesets')acts.innerHTML=`<button class="topbar-btn danger" onclick="resetRules()">🔄 重置</button><!-- <button class="topbar-btn" onclick="showRawEditor()">编辑原始配置</button> --><button class="topbar-btn" onclick="loadRulesets()">🔄 刷新</button><button class="topbar-btn success" onclick="saveCustomRules()">💾 保存</button><button class="topbar-btn primary" onclick="addRule()">+ 新增规则</button>`;
+  if(page==='rulesets')acts.innerHTML=`<button class="topbar-btn danger" onclick="resetRules()">🔄 重置</button><!-- <button class="topbar-btn" onclick="showRawEditor()">编辑原始配置</button> --><button class="topbar-btn refresh" onclick="loadRulesets()">🔄 刷新</button><button class="topbar-btn success" onclick="saveCustomRules()">💾 保存</button><button class="topbar-btn primary" onclick="addRule()">+ 新增规则</button>`;
   clearInterval(trafficTimer);
   if(logES){logES.close();logES=null}
   if(page==='overview'){loadOverview();startTraffic()}
@@ -1299,11 +1322,26 @@ async function activateSubByClick(id, activeId){
 
 async function activateSub(id){
   try{
-    await apiFetch(`/api/subscriptions/${id}/activate`,{method:'POST'});
+    const result = await apiFetch(
+      `/api/subscriptions/${id}/activate`,
+      {method:'POST'}
+    );
+
+    if (!result || !result.success) {
+      throw new Error(result?.message || '激活失败');
+    }
+
+    // 后端已经确认激活成功，直接使用返回的 active_subscription
+    const activeId = result.active_subscription;
+
+    renderSubscriptions(activeId);
+
     toast('订阅已激活，配置已重载','success');
-    await new Promise(r=>setTimeout(r,2000));
-    loadSubscriptions(true);
-  }catch(e){toast('激活失败: '+e.message,'error')}
+
+  }catch(e){
+    console.error('[activateSub ERROR]', e);
+    toast('激活失败: '+e.message,'error');
+  }
 }
 
 async function deleteSub(id){
@@ -1316,82 +1354,316 @@ async function deleteSub(id){
   }catch(e){toast('删除失败','error')}
 }
 
-// ─── 规则管理（新） ──────────────────────────────────────────────────────────
+// ─── 规则管理 ──────────────────────────────────────────────────────────────
 
-// 注意：ruleData 和 currentActiveSubId 已在文件顶部声明，不要重复声明！
-// 这里不需要再声明任何变量
+// 注意：
+// ruleData / currentActiveSubId / original_modifications
+// 已在文件顶部声明，这里不要重复声明。
+
 
 // ─── 解析规则字符串为对象 ──────────────────────────────────────────────────
+
 function parseRuleString(ruleStr) {
     if (typeof ruleStr === 'string') {
         let clean = ruleStr.trim();
+
         if (clean.startsWith('- ')) {
             clean = clean.substring(2);
         }
+
         const parts = clean.split(',').map(s => s.trim());
 
         if (parts.length >= 2) {
             const type = parts[0];
 
-            // 🔥 proxy 是倒数第二个，不是最后一个！
-            // 因为最后一个可能是额外参数（如 no-resolve）
-            let proxy = parts[parts.length - 2];  // 倒数第二个
+            let proxy = '';
             let payload = '';
 
             if (parts.length === 2) {
                 // DOMAIN,PROXY
                 proxy = parts[1];
-                payload = '';
             } else if (parts.length === 3) {
                 // DOMAIN-SUFFIX,google.com,PROXY
                 payload = parts[1];
                 proxy = parts[2];
-            } else if (parts.length >= 4) {
+            } else {
                 // IP-CIDR,1.1.1.0/24,PROXY,no-resolve
                 // IP-CIDR6,2001::/48,PROXY,no-resolve
-                payload = parts[1];      // 第二个是 payload
-                proxy = parts[2];        // 第三个是 proxy
-                // 第四个及以后是额外参数（如 no-resolve），忽略
+                payload = parts[1];
+                proxy = parts[2];
             }
 
-            return { type, payload, proxy };
+            return {
+                type,
+                payload,
+                proxy
+            };
         }
-        return { type: parts[0] || 'UNKNOWN', payload: '', proxy: '' };
+
+        return {
+            type: parts[0] || 'UNKNOWN',
+            payload: '',
+            proxy: ''
+        };
     }
-    return { ...ruleStr };
+
+    return {
+        type: ruleStr?.type || 'UNKNOWN',
+        payload: ruleStr?.payload || '',
+        proxy: ruleStr?.proxy || ''
+    };
 }
 
+
+// ─── 规则对象标准化 ───────────────────────────────────────────────────────
+
+function normalizeRule(rule) {
+    if (!rule) {
+        return {
+            type: '',
+            payload: '',
+            proxy: ''
+        };
+    }
+
+    return {
+        type: String(rule.type || '').trim(),
+        payload: String(rule.payload || '').trim(),
+        proxy: String(rule.proxy || '').trim()
+    };
+}
+
+
+// ─── 判断两个规则是否实质相同 ───────────────────────────────────────────────
+
+function isSameRule(a, b) {
+    const ruleA = normalizeRule(a);
+    const ruleB = normalizeRule(b);
+
+    return (
+        ruleA.type === ruleB.type &&
+        ruleA.payload === ruleB.payload &&
+        ruleA.proxy === ruleB.proxy
+    );
+}
+
+
+// ─── 根据 payload 查找原始规则 ──────────────────────────────────────────────
+//
+// payload 是原始规则唯一且不可编辑的匹配依据。
+
+function findOriginalRuleByPayload(payload) {
+    const targetPayload = String(payload || '').trim();
+
+    return ruleData.original_rules.find(rule =>
+        String(rule.payload || '').trim() === targetPayload
+    );
+}
+
+
+// ─── 根据 payload 查找修改记录 ──────────────────────────────────────────────
+
+function findOriginalModificationIndex(payload) {
+    const targetPayload = String(payload || '').trim();
+
+    return original_modifications.findIndex(mod =>
+        String(mod.payload || '').trim() === targetPayload
+    );
+}
+
+
+// ─── 删除原始规则修改记录 ──────────────────────────────────────────────────
+
+function removeOriginalModification(payload) {
+    const index = findOriginalModificationIndex(payload);
+
+    if (index !== -1) {
+        original_modifications.splice(index, 1);
+
+        console.log(
+            '[original_modifications] 删除修改记录:',
+            payload
+        );
+    }
+}
+
+
+// ─── 立即记录原始规则修改 ──────────────────────────────────────────────────
+//
+// 注意：
+// 这里只记录“真正发生变化”的 edit。
+// 如果用户改完以后又改回原始值，则 edit 记录会自动消失。
+
+function updateOriginalRuleModification(rule) {
+    if (!rule) {
+        return;
+    }
+
+    const currentRule = normalizeRule(rule);
+
+    // payload 是不可修改字段，因此直接用它寻找原始规则
+    const originalRule = findOriginalRuleByPayload(currentRule.payload);
+
+    if (!originalRule) {
+        console.warn(
+            '[updateOriginalRuleModification] 找不到对应原始规则:',
+            currentRule.payload
+        );
+        return;
+    }
+
+    const original = normalizeRule(originalRule);
+
+    // 完全没有发生实质变化
+    if (isSameRule(currentRule, original)) {
+        removeOriginalModification(currentRule.payload);
+
+        console.log(
+            '[updateOriginalRuleModification] 恢复原值，不记录修改:',
+            currentRule.payload
+        );
+
+        return;
+    }
+
+    const modification = {
+        operation: 'edit',
+        payload: original.payload,
+        type: currentRule.type,
+        proxy: currentRule.proxy
+    };
+
+    const existingIndex = findOriginalModificationIndex(currentRule.payload);
+
+    if (existingIndex === -1) {
+        // 第一次修改，立即新增记录
+        original_modifications.push(modification);
+
+        console.log(
+            '[updateOriginalRuleModification] 新增 edit:',
+            modification
+        );
+    } else {
+        const existing = original_modifications[existingIndex];
+
+        // 如果原来是 delete，不能直接覆盖
+        // 这里一般不会发生，因为删除时会先处理 edit。
+        if (existing.operation === 'delete') {
+            original_modifications[existingIndex] = modification;
+        } else {
+            // 已经存在 edit，直接更新
+            original_modifications[existingIndex] = modification;
+        }
+
+        console.log(
+            '[updateOriginalRuleModification] 更新 edit:',
+            modification
+        );
+    }
+}
+
+
+// ─── 立即记录原始规则删除 ──────────────────────────────────────────────────
+//
+// 删除时：
+//   1. 如果之前存在 edit，先删除 edit
+//   2. 再记录 delete
+//
+// 这样保存时不会同时出现：
+//   edit + delete
+//
+// 而只会有：
+//   delete
+
+function recordOriginalRuleDeletion(rule) {
+    if (!rule) {
+        return;
+    }
+
+    const currentRule = normalizeRule(rule);
+
+    const existingIndex =
+        findOriginalModificationIndex(currentRule.payload);
+
+    const deletion = {
+        operation: 'delete',
+        payload: currentRule.payload,
+        type: currentRule.type,
+        proxy: currentRule.proxy
+    };
+
+    if (existingIndex === -1) {
+        original_modifications.push(deletion);
+    } else {
+        // 不管之前是 edit 还是 delete，
+        // 最终状态都是 delete。
+        original_modifications[existingIndex] = deletion;
+    }
+
+    console.log(
+        '[original_modifications] 记录 delete:',
+        deletion
+    );
+}
+
+
 // ─── 加载规则列表 ──────────────────────────────────────────────────────────
+
 async function loadRulesets() {
     try {
         const subsData = await apiFetch('/api/subscriptions');
         const activeId = subsData.active_subscription;
+
         currentActiveSubId = activeId;
 
         if (!activeId) {
+            ruleData.pre_rules = [];
+            ruleData.original_rules = [];
+            ruleData.post_rules = [];
+            original_modifications = [];
+
             document.getElementById('ruleset-empty').style.display = 'block';
             document.getElementById('ruleset-tbody').innerHTML = '';
+
             toast('请先激活一个订阅', 'info');
             return;
         }
 
-        const data = await apiFetch(`/api/subscriptions/${activeId}/rules/full`);
+        const data =
+            await apiFetch(`/api/subscriptions/${activeId}/rules/full`);
 
-        // 直接使用 ruleData 存储数据
-        ruleData.pre_rules = (data.pre_rules || []).map(r =>
-            typeof r === 'string' ? parseRuleString(r) : r
-        );
-        ruleData.original_rules = (data.original_rules || []).map(r =>
-            typeof r === 'string' ? parseRuleString(r) : r
-        );
-        ruleData.post_rules = (data.post_rules || []).map(r =>
-            typeof r === 'string' ? parseRuleString(r) : r
-        );
+        // 前置规则
+        ruleData.pre_rules =
+            (data.pre_rules || []).map(r =>
+                typeof r === 'string'
+                    ? parseRuleString(r)
+                    : normalizeRule(r)
+            );
 
-        // 清空修改记录
-        modifications = [];
+        // 原始规则
+        // 注意：
+        // original_rules 永远保存服务器返回的原始状态，
+        // 不因为用户编辑而修改。
+        ruleData.original_rules =
+            (data.original_rules || []).map(r =>
+                typeof r === 'string'
+                    ? parseRuleString(r)
+                    : normalizeRule(r)
+            );
+
+        // 后置规则
+        ruleData.post_rules =
+            (data.post_rules || []).map(r =>
+                typeof r === 'string'
+                    ? parseRuleString(r)
+                    : normalizeRule(r)
+            );
+
+        // 每次重新加载后，修改记录清空
+        original_modifications = [];
 
         renderRulesetTable();
+
         document.getElementById('ruleset-empty').style.display = 'none';
 
     } catch (e) {
@@ -1400,20 +1672,64 @@ async function loadRulesets() {
     }
 }
 
+
+// ─── HTML 转义 ─────────────────────────────────────────────────────────────
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) {
+        return '';
+    }
+
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
+
+
+// ─── HTML 属性转义 ─────────────────────────────────────────────────────────
+
+function escapeHtmlAttribute(str) {
+    if (str === null || str === undefined) {
+        return '';
+    }
+
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+
 // ─── 渲染规则表格 ──────────────────────────────────────────────────────────
+
 function renderRulesetTable() {
     const tbody = document.getElementById('ruleset-tbody');
     const empty = document.getElementById('ruleset-empty');
 
-    // 从 ruleData 构建所有规则列表
     const preRules = ruleData.pre_rules || [];
     const originalRules = ruleData.original_rules || [];
     const postRules = ruleData.post_rules || [];
 
     const allRules = [
-        ...preRules.map((r, idx) => ({ ...r, _position: 'pre', _idx: idx })),
-        ...originalRules.map((r, idx) => ({ ...r, _position: 'original', _idx: idx })),
-        ...postRules.map((r, idx) => ({ ...r, _position: 'post', _idx: idx }))
+        ...preRules.map((r, idx) => ({
+            ...r,
+            _position: 'pre',
+            _idx: idx
+        })),
+
+        ...originalRules.map((r, idx) => ({
+            ...r,
+            _position: 'original',
+            _idx: idx
+        })),
+
+        ...postRules.map((r, idx) => ({
+            ...r,
+            _position: 'post',
+            _idx: idx
+        }))
     ];
 
     if (!allRules.length) {
@@ -1421,6 +1737,7 @@ function renderRulesetTable() {
         tbody.innerHTML = '';
         return;
     }
+
     empty.style.display = 'none';
 
     const typeOptions = [
@@ -1457,239 +1774,437 @@ function renderRulesetTable() {
         const payload = r.payload || '';
         const proxy = r.proxy || '';
 
-        // 🔥 判断是否是原始规则
         const isOriginal = r._position === 'original';
 
-        return `<tr data-position="${r._position}" data-globalidx="${globalIdx}" style="background:${bgColor}">
-            <td><span class="badge ${badgeClass}">${positionLabel}</span></td>
-            <td>
-                <select class="rule-type-select" ${isOriginal ? 'disabled' : ''} style="width:140px${isOriginal ? ';opacity:0.6;cursor:not-allowed' : ''}">
-                    ${typeOptions.map(t =>
-                        `<option value="${t}" ${type === t ? 'selected' : ''}>${t}</option>`
-                    ).join('')}
-                </select>
-                ${isOriginal ? `<input type="hidden" class="rule-type-select" value="${type}" />` : ''}
-            </td>
-            <td>
-                <input class="rule-payload" value="${escapeHtml(payload)}"
-                       ${isOriginal ? 'readonly' : ''}
-                       style="width:200px${isOriginal ? ';background:var(--surface3);opacity:0.7;cursor:not-allowed' : ''}"
-                       placeholder="匹配值（MATCH类型可留空）"
-                       title="${isOriginal ? '原始规则不可修改' : ''}" />
-            </td>
-            <td>
-                <input class="rule-proxy" value="${escapeHtml(proxy)}"
-                       style="width:140px"
-                       placeholder="代理目标" />
-            </td>
-            <td>
-                <button class="btn btn-danger" style="padding:3px 10px;font-size:11px" onclick="deleteRuleRow(this)">删除</button>
-            </td>
-        </tr>`;
+        return `
+            <tr
+                data-position="${r._position}"
+                data-idx="${r._idx}"
+                data-globalidx="${globalIdx}"
+                style="background:${bgColor}"
+            >
+                <td>
+                    <span class="badge ${badgeClass}">
+                        ${positionLabel}
+                    </span>
+                </td>
+
+                <td>
+                    <select
+                        class="rule-type-select"
+                        ${isOriginal ? 'disabled' : ''}
+                        style="
+                            width:140px
+                            ${isOriginal
+                                ? ';opacity:0.6;cursor:not-allowed'
+                                : ''}
+                        "
+                    >
+                        ${typeOptions.map(t => `
+                            <option
+                                value="${escapeHtmlAttribute(t)}"
+                                ${type === t ? 'selected' : ''}
+                            >
+                                ${escapeHtml(t)}
+                            </option>
+                        `).join('')}
+                    </select>
+                </td>
+
+                <td>
+                    <input
+                        class="rule-payload"
+                        value="${escapeHtmlAttribute(payload)}"
+                        ${isOriginal ? 'readonly' : ''}
+                        style="
+                            width:200px
+                            ${isOriginal
+                                ? ';background:var(--surface3);opacity:0.7;cursor:not-allowed'
+                                : ''}
+                        "
+                        placeholder="匹配值（MATCH类型可留空）"
+                        title="${isOriginal ? '原始规则不可修改' : ''}"
+                    />
+                </td>
+
+                <td>
+                    <input
+                        class="rule-proxy"
+                        value="${escapeHtmlAttribute(proxy)}"
+                        style="width:140px"
+                        placeholder="代理目标"
+                    />
+                </td>
+
+                <td>
+                    <button
+                        class="btn btn-danger"
+                        style="padding:3px 10px;font-size:11px"
+                        onclick="deleteRuleRow(this)"
+                    >
+                        删除
+                    </button>
+                </td>
+            </tr>
+        `;
     }).join('');
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 关键：
+    // DOM 创建完成后立即绑定 change/input 事件。
+    // 不再等到保存时读取 DOM。
+    // ─────────────────────────────────────────────────────────────────────
+
+    bindRuleRowEvents();
 }
 
-// ─── 辅助：HTML 转义，防止 XSS ──────────────────────────────────────────
-function escapeHtml(str) {
-    if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-}
 
-// ─── 删除规则行（点击时立即记录删除操作） ──────────────────────────────
-function deleteRuleRow(btn) {
-    const row = btn.closest('tr');
-    if (!row) return;
+// ─── 绑定规则编辑事件 ──────────────────────────────────────────────────────
 
-    const position = row.dataset.position;
-    const label = position === 'pre' ? '前置' : position === 'post' ? '后置' : '原始';
+function bindRuleRowEvents() {
+    const rows =
+        document.querySelectorAll('#ruleset-tbody tr');
 
-    if (!confirm(`确定要删除这条${label}规则吗？`)) return;
+    rows.forEach(row => {
+        const position = row.dataset.position;
+        const idx = parseInt(row.dataset.idx, 10);
 
-    // 🔥 获取规则信息
-    const typeSelect = row.querySelector('.rule-type-select');
-    const payloadInput = row.querySelector('.rule-payload');
-    const proxyInput = row.querySelector('.rule-proxy');
+        const typeSelect =
+            row.querySelector('.rule-type-select');
 
-    const type = typeSelect ? typeSelect.value : '';
-    const payload = payloadInput ? payloadInput.value.trim() : '';
-    const proxy = proxyInput ? proxyInput.value.trim() : '';
+        const payloadInput =
+            row.querySelector('.rule-payload');
 
-    // 🔥 根据位置处理
-    if (position === 'pre') {
-        // 前置规则：直接从 ruleData.pre_rules 删除
-        const globalIdx = parseInt(row.dataset.globalidx);
-        if (globalIdx < ruleData.pre_rules.length) {
-            ruleData.pre_rules.splice(globalIdx, 1);
+        const proxyInput =
+            row.querySelector('.rule-proxy');
+
+        if (!typeSelect || !payloadInput || !proxyInput) {
+            return;
         }
-    } else if (position === 'post') {
-        // 后置规则：直接从 ruleData.post_rules 删除
-        const preLen = ruleData.pre_rules.length;
-        const origLen = ruleData.original_rules.length;
-        const postIdx = parseInt(row.dataset.globalidx) - preLen - origLen;
-        if (postIdx >= 0 && postIdx < ruleData.post_rules.length) {
-            ruleData.post_rules.splice(postIdx, 1);
+
+        // ─────────────────────────────────────────────────────────────────
+        // 前置 / 后置规则
+        //
+        // 修改发生时立即写回 ruleData。
+        // ─────────────────────────────────────────────────────────────────
+
+        if (position === 'pre' || position === 'post') {
+
+            const targetList =
+                position === 'pre'
+                    ? ruleData.pre_rules
+                    : ruleData.post_rules;
+
+            const updateRule = () => {
+                if (
+                    idx < 0 ||
+                    idx >= targetList.length
+                ) {
+                    console.warn(
+                        '[bindRuleRowEvents] 无效规则索引:',
+                        position,
+                        idx
+                    );
+                    return;
+                }
+
+                const oldRule = targetList[idx];
+
+                const newRule = {
+                    type: typeSelect.value.trim(),
+                    payload: payloadInput.value.trim(),
+                    proxy: proxyInput.value.trim()
+                };
+
+                // 没有实质变化就不写
+                if (isSameRule(oldRule, newRule)) {
+                    return;
+                }
+
+                targetList[idx] = newRule;
+
+                console.log(
+                    `[${position}_rules] 立即更新:`,
+                    idx,
+                    newRule
+                );
+            };
+
+            typeSelect.addEventListener('change', updateRule);
+
+            payloadInput.addEventListener('input', updateRule);
+
+            proxyInput.addEventListener('input', updateRule);
+
+            return;
         }
-    } else {
-        // 🔥 原始规则：记录删除操作到 modifications
-        modifications.push({
-            operation: 'delete',
-            payload: payload,
-            type: type,
-            proxy: proxy
-        });
-        console.log('[deleteRuleRow] 记录删除操作:', payload);
-    }
 
-    // 🔥 从 DOM 移除行
-    row.remove();
 
-    // 重新编号
-    renumberRows();
+        // ─────────────────────────────────────────────────────────────────
+        // 原始规则
+        //
+        // type / payload 不可编辑。
+        // 实际可修改的就是 proxy。
+        //
+        // 修改发生时：
+        // payload → 找原始规则 → 比较实际值 → 立即更新记录。
+        // ─────────────────────────────────────────────────────────────────
 
-    toast('规则已删除，点击"保存配置"生效', 'info');
-}
+        if (position === 'original') {
 
-// ─── 重新编号行 ──────────────────────────────────────────────────────────
-function renumberRows() {
-    const rows = document.querySelectorAll('#ruleset-tbody tr');
-    rows.forEach((row, index) => {
-        row.dataset.globalidx = index;
+            const updateOriginalRule = () => {
+                const payload =
+                    payloadInput.value.trim();
+
+                const originalRule =
+                    findOriginalRuleByPayload(payload);
+
+                if (!originalRule) {
+                    console.warn(
+                        '[original_rules] 找不到 payload:',
+                        payload
+                    );
+                    return;
+                }
+
+                const currentRule = {
+                    type: originalRule.type,
+                    payload: originalRule.payload,
+                    proxy: proxyInput.value.trim()
+                };
+
+                updateOriginalRuleModification(currentRule);
+            };
+
+            // 使用 input 可以做到输入发生后立即同步
+            proxyInput.addEventListener(
+                'input',
+                updateOriginalRule
+            );
+
+            return;
+        }
     });
 }
 
+
+// ─── 删除规则行 ────────────────────────────────────────────────────────────
+
+function deleteRuleRow(btn) {
+    const row = btn.closest('tr');
+
+    if (!row) {
+        return;
+    }
+
+    const position = row.dataset.position;
+    const idx = parseInt(row.dataset.idx, 10);
+
+    const label =
+        position === 'pre'
+            ? '前置'
+            : position === 'post'
+                ? '后置'
+                : '原始';
+
+    if (!confirm(`确定要删除这条${label}规则吗？`)) {
+        return;
+    }
+
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 前置规则
+    //
+    // 发生删除时立即修改 ruleData。
+    // ─────────────────────────────────────────────────────────────────────
+
+    if (position === 'pre') {
+
+        if (
+            idx >= 0 &&
+            idx < ruleData.pre_rules.length
+        ) {
+            const deletedRule =
+                ruleData.pre_rules[idx];
+
+            ruleData.pre_rules.splice(idx, 1);
+
+            console.log(
+                '[pre_rules] 立即删除:',
+                deletedRule
+            );
+        }
+    }
+
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 后置规则
+    // ─────────────────────────────────────────────────────────────────────
+
+    else if (position === 'post') {
+
+        if (
+            idx >= 0 &&
+            idx < ruleData.post_rules.length
+        ) {
+            const deletedRule =
+                ruleData.post_rules[idx];
+
+            ruleData.post_rules.splice(idx, 1);
+
+            console.log(
+                '[post_rules] 立即删除:',
+                deletedRule
+            );
+        }
+    }
+
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 原始规则
+    //
+    // 原始规则本身不删除。
+    // 只立即写入 original_modifications。
+    // ─────────────────────────────────────────────────────────────────────
+
+    else if (position === 'original') {
+
+        const originalRule =
+            ruleData.original_rules[idx];
+
+        if (!originalRule) {
+            console.warn(
+                '[original_rules] 删除失败，找不到规则:',
+                idx
+            );
+            return;
+        }
+
+        recordOriginalRuleDeletion(originalRule);
+    }
+
+
+    // DOM 只是显示层。
+    // 数据已经在上面立即修改完成。
+    //
+    // 这里重新渲染是为了：
+    // 1. 保证索引重新正确
+    // 2. 重新绑定事件
+    // 3. 保持 UI 与 ruleData 完全一致
+
+    renderRulesetTable();
+
+    toast(
+        '规则已删除，点击"保存配置"生效',
+        'info'
+    );
+}
+
+
 // ─── 添加规则 ──────────────────────────────────────────────────────────────
+
 function addRule() {
     if (!currentActiveSubId) {
         toast('请先激活一个订阅', 'error');
         return;
     }
+
     document.getElementById('rule-form-position').value = 'pre';
     document.getElementById('rule-form-type').value = 'DOMAIN';
     document.getElementById('rule-form-payload').value = '';
     document.getElementById('rule-form-proxy').value = '';
+
     openModal('modal-add-rule');
 }
 
+
+// ─── 提交添加规则 ──────────────────────────────────────────────────────────
+
 function submitAddRule() {
-    const position = document.getElementById('rule-form-position').value;
-    const type = document.getElementById('rule-form-type').value;
-    const payload = document.getElementById('rule-form-payload').value.trim();
-    const proxy = document.getElementById('rule-form-proxy').value.trim();
+    const position =
+        document.getElementById('rule-form-position').value;
+
+    const type =
+        document.getElementById('rule-form-type').value.trim();
+
+    const payload =
+        document.getElementById('rule-form-payload').value.trim();
+
+    const proxy =
+        document.getElementById('rule-form-proxy').value.trim();
 
     if (!proxy) {
         toast('请填写代理目标', 'error');
         return;
     }
 
-    const newRule = { type, proxy };
-    if (payload) newRule.payload = payload;
+    const newRule = {
+        type,
+        payload,
+        proxy
+    };
+
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 前置：立即修改 ruleData
+    // ─────────────────────────────────────────────────────────────────────
 
     if (position === 'pre') {
+
         ruleData.pre_rules.unshift(newRule);
-    } else if (position === 'post') {
+
+        console.log(
+            '[pre_rules] 立即添加:',
+            newRule
+        );
+    }
+
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 后置：立即修改 ruleData
+    // ─────────────────────────────────────────────────────────────────────
+
+    else if (position === 'post') {
+
         ruleData.post_rules.push(newRule);
-    } else {
-        toast('不能直接添加到原始规则，请选择前置或后置', 'error');
+
+        console.log(
+            '[post_rules] 立即添加:',
+            newRule
+        );
+    }
+
+
+    // 原始规则禁止直接添加
+    else {
+        toast(
+            '不能直接添加到原始规则，请选择前置或后置',
+            'error'
+        );
         return;
     }
 
     closeModal('modal-add-rule');
+
     renderRulesetTable();
-    toast('规则已添加，点击"保存配置"生效', 'success');
+
+    toast(
+        '规则已添加，点击"保存配置"生效',
+        'success'
+    );
 }
 
-// ─── 从 DOM 读取所有规则 ──────────────────────────────────────────────────
-function readRulesFromDOM() {
-    const rows = document.querySelectorAll('#ruleset-tbody tr');
-    const preRules = [];
-    const postRules = [];
-    const modificationsList = [];
-
-    // 🔥 构建当前 DOM 中原始规则的索引（用于检测编辑）
-    const domOriginalRules = [];
-
-    rows.forEach(row => {
-        const position = row.dataset.position;
-        const typeSelect = row.querySelector('.rule-type-select');
-        const payloadInput = row.querySelector('.rule-payload');
-        const proxyInput = row.querySelector('.rule-proxy');
-
-        if (!typeSelect || !payloadInput || !proxyInput) return;
-
-        const type = typeSelect.value;
-        const payload = payloadInput.value.trim();
-        const proxy = proxyInput.value.trim();
-
-        if (!proxy) return;
-
-        const ruleObj = { type, payload, proxy };
-        const ruleString = buildRuleString(ruleObj);
-
-        if (position === 'pre') {
-            preRules.push(ruleObj);
-        } else if (position === 'post') {
-            postRules.push(ruleObj);
-        } else {
-            // 原始规则：检查是否有修改
-            domOriginalRules.push({ ruleObj, ruleString });
-        }
-    });
-
-    // 🔥 检查原始规则是否有编辑
-    const originalMap = new Map();
-    ruleData.original_rules.forEach(orig => {
-        const key = buildRuleString(orig);
-        originalMap.set(key, orig);
-    });
-
-    domOriginalRules.forEach(({ ruleObj, ruleString }) => {
-        // 如果 DOM 中的规则与原始不一致，记录编辑
-        if (!originalMap.has(ruleString)) {
-            // 检查是否是基于某条原始规则修改的
-            // 用 payload 匹配，因为 payload 是唯一标识
-            const origMatch = ruleData.original_rules.find(orig => orig.payload === ruleObj.payload);
-            if (origMatch) {
-                // 同一条规则，内容变了 → 编辑
-                modificationsList.push({
-                    operation: 'edit',
-                    payload: ruleObj.payload,
-                    type: ruleObj.type,
-                    proxy: ruleObj.proxy
-                });
-            } else {
-                // 可能是新增的？但原始规则不应该新增
-                // 当作编辑处理
-                modificationsList.push({
-                    operation: 'edit',
-                    payload: ruleObj.payload,
-                    type: ruleObj.type,
-                    proxy: ruleObj.proxy
-                });
-            }
-        }
-        // 如果完全匹配，不记录
-    });
-
-    // 🔥 注意：删除操作已经在 deleteRuleRow 中记录了
-    // 这里不需要再检测删除
-
-    return { preRules, originalRules: modificationsList, postRules };
-}
-
-// ─── 辅助：构建规则字符串 ──────────────────────────────────────────────────
-function buildRuleString(rule) {
-    if (!rule) return '';
-    // 注意：原始规则可能有额外参数（如 no-resolve），但我们在 UI 中不显示它
-    // 所以构建时只用 type, payload, proxy
-    if (rule.payload && rule.payload.trim()) {
-        return `${rule.type},${rule.payload},${rule.proxy}`;
-    }
-    return `${rule.type},${rule.proxy}`;
-}
 
 // ─── 保存规则配置 ──────────────────────────────────────────────────────────
+//
+// 关键变化：
+//
+// 这里已经完全不再 readRulesFromDOM()。
+// 也不再遍历 DOM。
+// 也不再检查哪些规则发生了修改。
+//
+// 所有状态在用户操作发生时已经同步完成。
+
 async function saveCustomRules() {
     if (!currentActiveSubId) {
         toast('没有激活的订阅', 'error');
@@ -1697,113 +2212,250 @@ async function saveCustomRules() {
     }
 
     try {
-        // 🔥 从 DOM 读取最新数据（编辑 + 前置 + 后置）
-        const { preRules, originalRules: editModifications, postRules } = readRulesFromDOM();
-
-        // 🔥 合并修改记录：编辑记录 + 删除记录
-        // 删除记录已经存在 modifications 中（来自 deleteRuleRow）
-        // 编辑记录来自 readRulesFromDOM
-        const allModifications = [...modifications, ...editModifications];
-
-        console.log('[saveCustomRules] 删除记录:', JSON.stringify(modifications, null, 2));
-        console.log('[saveCustomRules] 编辑记录:', JSON.stringify(editModifications, null, 2));
-        console.log('[saveCustomRules] 合并后:', JSON.stringify(allModifications, null, 2));
 
         const body = {
-            pre_rules: preRules,
-            original_rules: allModifications,  // 合并所有修改
-            post_rules: postRules
+            pre_rules: ruleData.pre_rules,
+            original_rules: original_modifications,
+            post_rules: ruleData.post_rules
         };
 
-        const response = await fetch(`/api/subscriptions/${currentActiveSubId}/rules/save`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
+        console.log(
+            '[saveCustomRules] pre_rules:',
+            JSON.stringify(ruleData.pre_rules, null, 2)
+        );
+
+        console.log(
+            '[saveCustomRules] original_modifications:',
+            JSON.stringify(original_modifications, null, 2)
+        );
+
+        console.log(
+            '[saveCustomRules] post_rules:',
+            JSON.stringify(ruleData.post_rules, null, 2)
+        );
+
+        console.log(
+            '[saveCustomRules] currentActiveSubId:',
+            currentActiveSubId
+        );
+
+        const response =
+            await fetch(
+                `/api/subscriptions/${currentActiveSubId}/rules/save`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                }
+            );
 
         if (!response.ok) {
             let errorMsg = `HTTP ${response.status}`;
+
             try {
-                const errData = await response.json();
+                const errData =
+                    await response.json();
+
                 if (errData.detail) {
                     if (Array.isArray(errData.detail)) {
-                        errorMsg = errData.detail.map(e =>
-                            `${e.loc.join('.')}: ${e.msg}`
-                        ).join('; ');
-                    } else if (typeof errData.detail === 'string') {
+                        errorMsg =
+                            errData.detail.map(e =>
+                                `${e.loc.join('.')}: ${e.msg}`
+                            ).join('; ');
+                    } else if (
+                        typeof errData.detail === 'string'
+                    ) {
                         errorMsg = errData.detail;
                     }
                 }
-            } catch (e) {}
+            } catch (e) {
+                // 忽略 JSON 解析错误
+            }
+
             throw new Error(errorMsg);
         }
 
-        const result = await response.json();
-        toast(result.warning || '规则修改已保存并应用', result.warning ? 'warning' : 'success');
+        const result =
+            await response.json();
 
-        // 🔥 清空修改记录并重新加载
-        modifications = [];
+        toast(
+            result.warning ||
+                '规则修改已保存并应用',
+            result.warning
+                ? 'warning'
+                : 'success'
+        );
+
+        // 保存成功后重新从服务器加载。
+        // 这样可以确保前端状态与后端最终状态完全一致。
+        original_modifications = [];
+
         await loadRulesets();
 
     } catch (e) {
-        console.error('[saveCustomRules ERROR]', e);
-        toast('保存失败: ' + (e.message || '未知错误'), 'error');
+        console.error(
+            '[saveCustomRules ERROR]',
+            e
+        );
+
+        toast(
+            '保存失败: ' +
+            (e.message || '未知错误'),
+            'error'
+        );
     }
 }
 
+
 // ─── 重置规则 ──────────────────────────────────────────────────────────────
+
 async function resetRules() {
     if (!currentActiveSubId) {
         toast('没有激活的订阅', 'error');
         return;
     }
 
-    if (!confirm('确定要重置所有规则修改吗？这将清除所有前置规则、后置规则和对原始规则的修改，恢复到订阅的原始配置。')) {
+    if (!confirm(
+        '确定要重置所有规则修改吗？这将清除所有前置规则、后置规则和对原始规则的修改，恢复到订阅的原始配置。'
+    )) {
         return;
     }
 
     try {
-        toast('正在重置规则...', 'info');
+        toast(
+            '正在重置规则...',
+            'info'
+        );
 
-        const response = await fetch(`/api/subscriptions/${currentActiveSubId}/rules/reset`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
+        const response =
+            await fetch(
+                `/api/subscriptions/${currentActiveSubId}/rules/reset`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
 
         if (!response.ok) {
             let errorMsg = `HTTP ${response.status}`;
+
             try {
-                const errData = await response.json();
+                const errData =
+                    await response.json();
+
                 if (errData.detail) {
-                    errorMsg = typeof errData.detail === 'string' ? errData.detail : JSON.stringify(errData.detail);
+                    errorMsg =
+                        typeof errData.detail === 'string'
+                            ? errData.detail
+                            : JSON.stringify(errData.detail);
                 }
-            } catch (e) {}
+            } catch (e) {
+                // 忽略 JSON 解析错误
+            }
+
             throw new Error(errorMsg);
         }
 
-        const result = await response.json();
-        toast(result.warning || '规则已重置，恢复到原始配置', result.warning ? 'warning' : 'success');
+        const result =
+            await response.json();
 
-        // 清空修改记录并重新加载
-        modifications = [];
+        toast(
+            result.warning ||
+                '规则已重置，恢复到原始配置',
+            result.warning
+                ? 'warning'
+                : 'success'
+        );
+
+        original_modifications = [];
+
         await loadRulesets();
 
     } catch (e) {
-        console.error('[resetRules ERROR]', e);
-        toast('重置失败: ' + (e.message || '未知错误'), 'error');
+        console.error(
+            '[resetRules ERROR]',
+            e
+        );
+
+        toast(
+            '重置失败: ' +
+            (e.message || '未知错误'),
+            'error'
+        );
     }
 }
 
-// ─── 辅助函数：调试 ──────────────────────────────────────────────────────
+
+// ─── 调试 ──────────────────────────────────────────────────────────────────
+
 function debugRuleData() {
     console.log('=== Rule Data Debug ===');
-    console.log('pre_rules:', ruleData.pre_rules.length, JSON.stringify(ruleData.pre_rules, null, 2));
-    console.log('original_rules:', ruleData.original_rules.length, JSON.stringify(ruleData.original_rules, null, 2));
-    console.log('post_rules:', ruleData.post_rules.length, JSON.stringify(ruleData.post_rules, null, 2));
-    console.log('modifications:', modifications.length, JSON.stringify(modifications, null, 2));
+
+    console.log(
+        'pre_rules:',
+        ruleData.pre_rules.length,
+        JSON.stringify(
+            ruleData.pre_rules,
+            null,
+            2
+        )
+    );
+
+    console.log(
+        'original_rules:',
+        ruleData.original_rules.length,
+        JSON.stringify(
+            ruleData.original_rules,
+            null,
+            2
+        )
+    );
+
+    console.log(
+        'original_modifications:',
+        original_modifications.length,
+        JSON.stringify(
+            original_modifications,
+            null,
+            2
+        )
+    );
+
+    console.log(
+        'post_rules:',
+        ruleData.post_rules.length,
+        JSON.stringify(
+            ruleData.post_rules,
+            null,
+            2
+        )
+    );
+
     console.log('=======================');
-}parseRuleString
-// ───────────────────────────────────
+}
+
+
+// ─── 辅助：构建规则字符串 ──────────────────────────────────────────────────
+
+function buildRuleString(rule) {
+    if (!rule) {
+        return '';
+    }
+
+    const normalized = normalizeRule(rule);
+
+    if (normalized.payload) {
+        return `${normalized.type},${normalized.payload},${normalized.proxy}`;
+    }
+
+    return `${normalized.type},${normalized.proxy}`;
+}
+
+// ─── 结束 ──────────────────────────────────────────────────
 
 function setProxyMode(mode){
   document.getElementById('mode-mixed').classList.toggle('active',mode==='mixed');
