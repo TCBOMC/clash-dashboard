@@ -45,6 +45,12 @@ MIHOMO_SOCKS_PORT = int(os.getenv("MIHOMO_SOCKS_PORT", "7890"))
 # 全局关闭事件
 _shutdown_event = None
 
+# launcher 是否负责管理 bundled mihomo
+_bundled_mihomo_enabled = False
+
+# 防止多个请求同时重启 mihomo
+_mihomo_restart_lock = None
+
 # ─── Binary paths ───────────────────────────────────────────────────────────
 
 def _find_mihomo_bin() -> Path | None:
@@ -76,38 +82,151 @@ def _port_open(host: str, port: int) -> bool:
 
 def _start_cmd_server(shutdown_event):
     """
-    启动一个简单的 HTTP 服务器，监听关闭命令。
-    GET /shutdown -> 触发关闭事件，返回 200 后 launcher 优雅退出
-    GET /health   -> 返回 200 OK
+    启动 launcher HTTP command server。
+
+    GET:
+        /shutdown
+        /health
+
+    POST:
+        /restart-mihomo
     """
+
     import threading
-    from http.server import HTTPServer, BaseHTTPRequestHandler
+    from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
     class _Handler(BaseHTTPRequestHandler):
+
+        def _send_response(
+            self,
+            status_code: int,
+            body: str,
+            content_type: str = "text/plain; charset=utf-8"
+        ):
+            self.send_response(status_code)
+            self.send_header(
+                "Content-Type",
+                content_type
+            )
+            self.end_headers()
+            self.wfile.write(body.encode("utf-8"))
+
         def do_GET(self):
+
             if self.path == "/shutdown":
-                self.send_response(200)
-                self.send_header("Content-Type", "text/plain; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(b"OK, shutting down")
-                print("\n[launcher] Received /shutdown, initiating shutdown...")
+
+                self._send_response(
+                    200,
+                    "OK, shutting down"
+                )
+
+                print(
+                    "\n[launcher] Received /shutdown, "
+                    "initiating shutdown..."
+                )
+
                 shutdown_event.set()
+
             elif self.path == "/health":
-                self.send_response(200)
-                self.send_header("Content-Type", "text/plain")
-                self.end_headers()
-                self.wfile.write(b"OK")
+
+                self._send_response(
+                    200,
+                    "OK"
+                )
+
             else:
-                self.send_response(404)
-                self.end_headers()
+
+                self._send_response(
+                    404,
+                    "Not Found"
+                )
+
+        def do_POST(self):
+
+            if self.path == "/restart-mihomo":
+
+                print(
+                    "\n[launcher] Received /restart-mihomo"
+                )
+
+                global _mihomo_restart_lock
+
+                # 防止并发重启
+                if _mihomo_restart_lock is None:
+                    _mihomo_restart_lock = threading.Lock()
+
+                acquired = _mihomo_restart_lock.acquire(
+                    blocking=False
+                )
+
+                if not acquired:
+
+                    self._send_response(
+                        409,
+                        "Mihomo restart already in progress"
+                    )
+                    return
+
+                try:
+
+                    success = _restart_mihomo()
+
+                    if success:
+
+                        self._send_response(
+                            200,
+                            "Mihomo restarted successfully"
+                        )
+
+                    else:
+
+                        self._send_response(
+                            503,
+                            "Failed to restart mihomo"
+                        )
+
+                except Exception as e:
+
+                    print(
+                        f"[launcher] /restart-mihomo failed: {e}"
+                    )
+
+                    self._send_response(
+                        500,
+                        f"Restart failed: {e}"
+                    )
+
+                finally:
+
+                    _mihomo_restart_lock.release()
+
+            else:
+
+                self._send_response(
+                    404,
+                    "Not Found"
+                )
 
         def log_message(self, format, *args):
-            pass  # 静默日志
+            pass
 
-    srv = HTTPServer(("127.0.0.1", LAUNCHER_CMD_PORT), _Handler)
-    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    srv = ThreadingHTTPServer(
+        ("127.0.0.1", LAUNCHER_CMD_PORT),
+        _Handler
+    )
+
+    t = threading.Thread(
+        target=srv.serve_forever,
+        daemon=True
+    )
+
     t.start()
-    print(f"[launcher] Command server listening on http://127.0.0.1:{LAUNCHER_CMD_PORT}")
+
+    print(
+        f"[launcher] Command server listening on "
+        f"http://127.0.0.1:{LAUNCHER_CMD_PORT}"
+    )
+
     return srv
 
 
@@ -193,6 +312,79 @@ def _start_mihomo(config_path: Path) -> subprocess.Popen | None:
             content = log_path.read_text(errors="replace")
             print(f"[launcher] mihomo.log tail:\n{content[-1000:]}")
         return None
+
+def _restart_mihomo() -> bool:
+    """
+    Restart the bundled mihomo managed by this launcher.
+
+    Returns:
+        True  - mihomo successfully started and API port is ready
+        False - restart failed
+    """
+
+    if not _bundled_mihomo_enabled:
+        print("[launcher] Bundled mihomo restart requested, "
+              "but launcher is not managing bundled mihomo")
+        return False
+
+    config_path = CONFIG_DIR / "config.yaml"
+
+    if not config_path.exists():
+        print(f"[launcher] Cannot restart mihomo: config not found: {config_path}")
+        return False
+
+    print("[launcher] Restarting bundled mihomo...")
+
+    # ------------------------------------------------------------
+    # 1. 停止当前 mihomo
+    # ------------------------------------------------------------
+
+    try:
+        _stop_mihomo()
+    except Exception as e:
+        print(f"[launcher] Error while stopping mihomo: {e}")
+
+    # ------------------------------------------------------------
+    # 2. 确认 API 端口已经释放
+    # ------------------------------------------------------------
+
+    api_port = _detect_api_port(config_path)
+
+    if not _wait_port_free(
+        "127.0.0.1",
+        api_port,
+        timeout=10
+    ):
+        print(
+            f"[launcher] Mihomo API port {api_port} "
+            f"did not become free"
+        )
+        return False
+
+    # ------------------------------------------------------------
+    # 3. 重新启动 mihomo
+    # ------------------------------------------------------------
+
+    proc = _start_mihomo(config_path)
+
+    if proc is not None:
+        print(
+            f"[launcher] Mihomo restarted successfully "
+            f"(PID {proc.pid})"
+        )
+        return True
+
+    # _start_mihomo() 在端口已经存在时会返回 None，
+    # 所以这里再确认一次端口是否已经恢复。
+    if _port_open("127.0.0.1", api_port):
+        print(
+            f"[launcher] Mihomo API is available again "
+            f"on port {api_port}"
+        )
+        return True
+
+    print("[launcher] Mihomo restart failed")
+    return False
 
 
 def _stop_mihomo() -> None:
@@ -361,6 +553,7 @@ def _signal_handler(signum, frame):
 
 def main():
     global _shutdown_event
+    global _bundled_mihomo_enabled
 
     args = sys.argv[1:]
 
@@ -370,6 +563,7 @@ def main():
         return
 
     skip_mihomo = "--no-mihomo" in args
+    _bundled_mihomo_enabled = not skip_mihomo
 
     # 创建关闭事件
     import threading
